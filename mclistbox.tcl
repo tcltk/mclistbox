@@ -28,7 +28,7 @@
 # bag saving a duplicate copy of the data, which means data retrieval
 # will be slower, but memory requirements will be reduced. 
 
-package require Tk 8.0
+package require Tk 8.3
 package provide mclistbox 1.02
 
 namespace eval ::mclistbox {
@@ -115,6 +115,7 @@ proc ::mclistbox::Init {} {
 	    -selectforeground    {selectForeground    Background} \
 	    -selectmode          {selectMode          SelectMode} \
 	    -setgrid             {setGrid             SetGrid} \
+            -state               {state               State} \
 	    -takefocus           {takeFocus           TakeFocus} \
 	    -width               {width               Width} \
 	    -xscrollcommand      {xScrollCommand      ScrollCommand} \
@@ -233,6 +234,7 @@ proc ::mclistbox::Init {} {
 	option add *Mclistbox.selectcommand       {}     widgetDefault
 	option add *Mclistbox.fillcolumn          {}     widgetDefault
 	option add *Mclistbox.iseditableindexcommand   {} widgetDefault
+        option add *Mclistbox.state               normal widgetDefault
 
 	# Bwidget stuff
 	option add *Mclistbox.dragEndCmd          {}     widgetDefault
@@ -747,6 +749,15 @@ proc ::mclistbox::NewColumn {w id {hidden false}} {
 	    -background $options(-background) \
 	    ]
 
+    set label     \
+	    [label $frame.label \
+	    -takefocus 0 \
+	    -relief raised \
+	    -bd 1 \
+	    -highlightthickness 0 \
+            -state $options(-state) \
+	    ]
+
     set listbox   \
 	    [listbox $frame.listbox \
 	    -takefocus 0 \
@@ -758,19 +769,11 @@ proc ::mclistbox::NewColumn {w id {hidden false}} {
 	    -yscrollcommand [list ::mclistbox::InvalidateScrollbars $w] \
 	    ]
 
-    set label     \
-	    [label $frame.label \
-	    -takefocus 0 \
-	    -relief raised \
-	    -bd 1 \
-	    -highlightthickness 0 \
-	    ]
-
     set button \
 	    [button $frame.editbutton \
 	    -bd 1        \
-		-padx 0      \
-		-pady 0      \
+            -padx 0      \
+            -pady 0      \
 	    -text "Edit" \
 	    -command [list ::mclistbox::_editButtonCommand $w $id] \
 	    -state disabled
@@ -920,6 +923,10 @@ proc ::mclistbox::Column-add {w args} {
     # ericm@scriptics
     set widgets(editbutton$id)  [lindex $widgetlist 3]
     # ericm@scriptics
+
+    if {[string equal $options(-state) "disabled"]} {
+        set opts(-foreground) [$widgets(label$id) cget -disabledforeground]
+    }
 
     # add this column to the list of known columns
     lappend misc(columns) $id
@@ -1681,6 +1688,13 @@ proc ::mclistbox::WidgetProc {w command args} {
 	    # of something we do. So, grab the current selection before
 	    # we do anything. Just before returning we'll see if the
 	    # selection has changed. If so, we'll call our selectcommand
+
+           if {[string equal $options(-state) "disabled"]} {
+	       foreach id $misc(columns) {
+                   $widgets(listbox$id) selection clear 0 end
+	       }
+           }
+
 	    if {$options(-selectcommand) != ""} {
 		set col0 [lindex $misc(columns) 0]
 		set priorSelection [$widgets(listbox$col0) curselection]
@@ -1820,9 +1834,11 @@ proc ::mclistbox::WidgetProc {w command args} {
 		}
 	    }
 	}
-	foreach editbutton [array names widgets editbutton*] {
-	    $widgets($editbutton) configure -state $state
-	}
+        if {[string equal $options(-state) normal]} {
+	    foreach editbutton [array names widgets editbutton*] {
+	        $widgets($editbutton) configure -state $state
+	    }
+        }
     }
     # ericm@scriptics.com
 
@@ -2234,7 +2250,40 @@ proc ::mclistbox::Configure {w args} {
 		$widgets(hiddenListbox) configure $option $newValue
 		set options($option) [$widgets(hiddenListbox) cget $option]
 	    }
+            -state {
+		set newValue [string tolower $newValue]
+		set vals [list "normal" "disabled"]
+		if { [lsearch $vals $newValue] == -1 } {
+		    error "bad state \"$newValue\": must be disabled or normal"
+		}
+		set options($option) $newValue
 
+                if {[string equal $newValue "disabled"]} {
+		    
+                    foreach id $misc(columns) {
+		        $widgets(label$id) configure -state $newValue
+                        set fgcolor [$widgets(label$id) cget -disabledforeground]
+                        $widgets(listbox$id) configure -foreground $fgcolor
+                        set misc(oldSelect$id) [$widgets(listbox$id) curselection]
+  		        $widgets(listbox$id) selection clear 0 end
+		    }
+ 	            foreach editbutton [array names widgets editbutton*] {
+	                $widgets($editbutton) configure -state disabled
+	            }
+
+		} else {
+                    foreach id $misc(columns) {
+		        $widgets(label$id) configure -state $newValue
+                        $widgets(listbox$id) configure \
+                                -foreground $options(-foreground)
+                        if {[info exists misc(oldSelect$id)]} {
+		            foreach index $misc(oldSelect$id) {
+                                $widgets(listbox$id) selection set $index
+                            }
+			}
+                    }
+		}
+            }
 	    -cursor {
 		# { these must be applied to each listbox and frame }
 		foreach id $misc(columns) {

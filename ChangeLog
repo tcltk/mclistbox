@@ -1,3 +1,10 @@
+2000-08-07  Dan Kuchler  <kuchler@ajubasolutions.com>
+
+        * mclistbox.tcl: Added support for the '-state' flag so that
+        the mclistbox can be either normal or disabled state.  Since
+        the listbox can't be disabled until tk 8.4, for now, it only
+        disables the mclistbox by changing its foreground to the disabled
+        foreground color.
 
 2000-06-19  Dan Kuchler  <kuchler@ajubasolutions.com>
 
