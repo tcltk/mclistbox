@@ -653,6 +653,9 @@ proc ::mclistbox::SetClassBindings {} {
 	bind Mclistbox $event $binding
     }
 
+    # Add a button press binding to track selection for drag and drop
+    bind Mclistbox <ButtonPress-1> [list +::mclistbox::SetDragIndex %W %Y]
+
     # these define bindings for the column labels for resizing. Note
     # that we need both the name of this widget (calculated by $this)
     # as well as the specific widget that the event occured over.
@@ -670,6 +673,33 @@ proc ::mclistbox::SetClassBindings {} {
 	    "::mclistbox::ResizeEvent $this motion %W %x %X %Y"
     bind MclistboxMouseBindings <B1-Motion> \
 	    "::mclistbox::ResizeEvent $this drag %W %x %X %Y"
+}
+
+# ::mclistbox::SetDragIndex --
+#
+#    Store the drag index when the button is first clicked so that the right
+#    item is dragged and dropped.
+#
+# Arguments:
+#
+#    path          The path to the widget where the drag is started (%W from
+#                  bind).
+#    Y             The %Y from bind.
+#
+# Results:
+#
+#    Calculates the index of the row that was clicked in case it the item is
+#    dragged.
+#
+
+proc ::mclistbox::SetDragIndex {path Y} {
+    set index [$path nearest [expr {$Y - [winfo rooty $path]}]]
+    set path  [::mclistbox::convert $path -W]
+    upvar ::mclistbox::${path}::options options
+
+    set options(dragIndex) $index
+    
+    return
 }
 
 # ::mclistbox::NewColumn --
@@ -2856,9 +2886,21 @@ proc ::mclistbox::ResizeEvent {w type widget x X Y} {
 #       data     the dragged data
 
 proc ::mclistbox::_init_drag_cmd {path X Y top} {
-    set index [$path nearest [expr {$Y - [winfo rooty $path]}]]
     set path  [::mclistbox::convert $path -W]
     upvar ::mclistbox::${path}::options options
+
+    if {[info exists options(dragIndex)]} {
+
+        set index $options(dragIndex)
+
+    } else {
+
+        # I don't think this will ever happen.. We should always get a button
+        # press event before the drag init is called.
+
+        set index 0
+    }
+
     set cmd   $options(-draginitcmd)
     if { ![string equal $cmd ""] } {
 	return [uplevel \#0 $cmd [list $path $index $top]]
