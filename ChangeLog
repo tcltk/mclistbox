@@ -1,0 +1,21 @@
+1999-10-14  Eric Melski  <ericm@scriptics.com>
+
+	* mclistbox.tcl: Extended drag-and-drop support with a -dropcursor
+	option; this lets the user specify what kind of insertion cursor
+	will be shown when performing a drop into a listbox.  It can be
+	one of before (shows a line before the dropindex), after (line
+	after the dropindex), on (highlights the dropindex) or none (does
+	nothing).
+	Fixed a particularly bad bug in Configure:  there were several
+	comments inappropriately placed in a switch statement that were
+	preventing it from ever executing.  It's a wonder that the listbox
+	worked at all.
+	Added some code to remove the insertion bar when leaving the widget 
+	during dragover.
+	Added an edit function, for doing inline edits.
+	
+1999-10-13  Eric Melski  <ericm@scriptics.com>
+
+	* mclistbox.tcl: Added support for BWidget drag-and-drop protocol.
+	Added a drag_end command.
+
