@@ -375,13 +375,13 @@ The following example creates a listbox with three columns:
 To add items to the list, do the following:
 
     .listbox insert end [list "Bryan" "Oakley" "ChannelPoint"]
-    .listbox insert end [list "John"  "Ousterhout" "Scriptics"]
+    .listbox insert end [list "John"  "Ousterhout" "Ajuba Solutions"]
 
 ... or more concisely:
 
     .listbox insert end \
             [list "Bryan" "Oakley" "ChannelPoint"] \
-            [list "John"  "Ousterhout" "Scriptics"]
+            [list "John"  "Ousterhout" "Ajuba Solutions"]
 
 To cause a proc to be called when the user clicks on the column label
 of the column named "date", use "label bind" as in the following
