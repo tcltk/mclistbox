@@ -2524,8 +2524,8 @@ proc ::mclistbox::AdjustColumns {w {height ""}} {
     }
 
     # resize the height of each column so it matches the height
-    # of the text widget, minus a few pixels. 
-    incr height -4
+    # of the text widget.
+ 
     foreach id $misc(columns) {
 	$widgets(frame$id) configure -height $height
     }
