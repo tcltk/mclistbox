@@ -1,3 +1,9 @@
+1999-12-14  Eric Melski  <ericm@scriptics.com>
+
+	* mclistbox.tcl: Fixed some bugs in the _over_cmd dealing with empty 
+	listboxes.  Basically just had to put some checks around the return from
+	bbox; in case it was null, do something a little different.
+
 1999-12-10  Eric Melski  <ericm@scriptics.com>
 
 	* mclistbox.tcl: Changed syntax of edit/editcombo to take the name of a

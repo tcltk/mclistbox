@@ -2868,6 +2868,8 @@ proc ::mclistbox::_over_cmd {path source event X Y op type data} {
     set listbox $path
     set path  [::mclistbox::convert $path -W]
     upvar ::mclistbox::${path}::options options
+    upvar ::mclistbox::${path}::misc    misc
+    upvar ::mclistbox::${path}::widgets widgets
     set cmd $options(-dropovercmd)
     if { ![string equal $cmd ""] } {
 	set res [uplevel \#0 $cmd [list \
@@ -2887,7 +2889,25 @@ proc ::mclistbox::_over_cmd {path source event X Y op type data} {
 			    -dropovercmd ::mclistbox::_over_drag_frame_cmd \
 			    -dropcmd     ::mclistbox::_drop_drag_frame_cmd
 		}
-		foreach {x1 y1 w1 h1} [$path bbox $index] break
+		set bbox [$path bbox $index]
+		if { [string equal $bbox ""] } {
+		    # If bbox is null (ie, there's nothing in the listbox),
+		    # we have to do some tricks to get some realistic coords
+		    # for the dropcursor
+		    set x1 0
+		    set h1 0
+		    set i [expr [llength $misc(columns)] - 1]
+		    set id [lindex $misc(columns) $i]
+		    while { $i && ![expr {$options($id:-visible)}] } {
+			incr i -1
+			set id [lindex $misc(columns) $i]
+		    }
+		    set w1 [expr {[winfo width $widgets(frame$id)] + \
+			    [winfo x $widgets(frame$id)]}]
+		    set y1 [winfo y $widgets(listbox$id)]
+		} else {
+		    foreach {x1 y1 w1 h1} $bbox break
+		}
 		# decr y1 to account for bbox's overestimate
 		incr y1 -1
 		if { [string equal $options(-dropcursor) "before"] } {
@@ -2920,44 +2940,47 @@ proc ::mclistbox::_over_cmd {path source event X Y op type data} {
     # cursor enters one of these areas, set a timer event to scroll the
     # listbox appropriately.  When the cursor leaves the hot spot,
     # or when the drag ends, cancel the timer events.
-    foreach {x1 y1 w1 h1} [$listbox bbox $index] break
-    set top1 [winfo rooty $listbox]
-    set top2 [expr {$top1 + $h1}]
-    set bot2 [expr {[winfo height $listbox] + $top1}]
-    set bot1 [expr {$bot2 - $h1}]
-    if { $event == "leave" } {
-	# In all cases, a leave definately cancels the scrolling
-	if { [info exists ::mclistbox::_scrollTimer($path)] } {
-	    after cancel $::mclistbox::_scrollTimer($path)
-	    unset ::mclistbox::_scrollTimer($path)
-	}
-    } else {
-	if { $res & 1 } {
-	    foreach {first last} [$path yview] break
-	    # If we are accepting this drag, we can scroll the list
-	    if { $top1 < $Y && $Y < $top2 && $first != 0 } {
-		if { ![info exists ::mclistbox::_scrollTimer($path)] } {
-		    set ::mclistbox::_scrollTimer($path) \
-			    [after 200 [list ::mclistbox::Scroll $path -1]]
-		}
-	    } elseif { $bot1 < $Y && $Y < $bot2 && $last != 1 } {
-		if { ![info exists ::mclistbox::_scrollTimer($path)] } {
-		    set ::mclistbox::_scrollTimer($path) \
-			    [after 200 [list ::mclistbox::Scroll $path 1]]
+    set bbox [$listbox bbox $index]
+    if { ![string equal $bbox ""] } {
+	foreach {x1 y1 w1 h1} $bbox break
+	set top1 [winfo rooty $listbox]
+	set top2 [expr {$top1 + $h1}]
+	set bot2 [expr {[winfo height $listbox] + $top1}]
+	set bot1 [expr {$bot2 - $h1}]
+	if { $event == "leave" } {
+	    # In all cases, a leave definately cancels the scrolling
+	    if { [info exists ::mclistbox::_scrollTimer($path)] } {
+		after cancel $::mclistbox::_scrollTimer($path)
+		unset ::mclistbox::_scrollTimer($path)
+	    }
+	} else {
+	    if { $res & 1 } {
+		foreach {first last} [$path yview] break
+		# If we are accepting this drag, we can scroll the list
+		if { $top1 < $Y && $Y < $top2 && $first != 0 } {
+		    if { ![info exists ::mclistbox::_scrollTimer($path)] } {
+			set ::mclistbox::_scrollTimer($path) \
+				[after 200 [list ::mclistbox::Scroll $path -1]]
+		    }
+		} elseif { $bot1 < $Y && $Y < $bot2 && $last != 1 } {
+		    if { ![info exists ::mclistbox::_scrollTimer($path)] } {
+			set ::mclistbox::_scrollTimer($path) \
+				[after 200 [list ::mclistbox::Scroll $path 1]]
+		    }
+		} else {
+		    if { [info exists ::mclistbox::_scrollTimer($path)] } {
+			after cancel $::mclistbox::_scrollTimer($path)
+			unset ::mclistbox::_scrollTimer($path)
+		    }
 		}
 	    } else {
 		if { [info exists ::mclistbox::_scrollTimer($path)] } {
 		    after cancel $::mclistbox::_scrollTimer($path)
 		    unset ::mclistbox::_scrollTimer($path)
 		}
-	    }
-	} else {
-	    if { [info exists ::mclistbox::_scrollTimer($path)] } {
-		after cancel $::mclistbox::_scrollTimer($path)
-		unset ::mclistbox::_scrollTimer($path)
-	    }
-	}	    
-    }	    
+	    }	    
+	}
+    }
     
     return $res
 }
