@@ -1202,6 +1202,29 @@ proc ::mclistbox::DestroyHandler {w} {
 
 }
 
+# ::mclistbox::FirstVisibleColumn --
+#
+#    this proc returns the id of the first visible column.
+#
+# Arguments:
+#
+#    w       widget pathname
+#
+# Results:
+#
+#    a string
+
+proc ::mclistbox::FirstVisibleColumn {w} {
+    upvar ::mclistbox::${w}::misc      misc
+    upvar ::mclistbox::${w}::options      options
+
+    foreach id $misc(columns) {
+	if {$options($id:-visible)} {break}
+    }
+
+    return $id
+}
+
 # ::mclistbox::MassageIndex --
 #
 #    this proc massages indicies of the form @x,y such that 
@@ -1223,7 +1246,7 @@ proc ::mclistbox::MassageIndex {w index} {
     upvar ::mclistbox::${w}::misc      misc
 
     if {[regexp {@([0-9]+),([0-9]+)} $index matchvar x y]} {
-	set id [lindex $misc(columns) 0]
+	set id [FirstVisibleColumn $w]
 	
 	incr y -[winfo y $widgets(listbox$id)]
 	incr y -[winfo y $widgets(frame$id)]
@@ -1356,7 +1379,7 @@ proc ::mclistbox::WidgetProc {w command args} {
 	    # to account for the label, if any.
 	    set index [::mclistbox::MassageIndex $w [lindex $args 0]]
 
-	    set id [lindex $misc(columns) 0]
+	    set id [FirstVisibleColumn $w]
 
 	    # we can get the x, y, and height from the first 
 	    # column.
@@ -1582,8 +1605,12 @@ proc ::mclistbox::WidgetProc {w command args} {
 	    }
 
 	    set index [::mclistbox::MassageIndex $w [lindex $args 0]]
-	    set id [lindex $misc(columns) 0]
 
+	    # Select a visible column to convert the screen location
+	    # into row ... Invisible columns are not mapped and can't
+	    # do this. They always returns row 0.
+
+	    set id     [FirstVisibleColumn $w]
 	    set result [$widgets(listbox$id) index $index]
 	}
 
@@ -1710,7 +1737,7 @@ proc ::mclistbox::WidgetProc {w command args} {
 			error "$prefix selection $subcommand index"
 		    }
 		    set index [::mclistbox::MassageIndex $w [lindex $args 0]]
-		    set id [lindex $misc(columns) 0]
+		    set id [FirstVisibleColumn $w]
 		    set result [$widgets(listbox$id) selection includes $index]
 		}
 

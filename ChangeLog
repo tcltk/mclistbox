@@ -1,3 +1,10 @@
+2001-09-07  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* mclistbox.tcl: Added 'FirstVisibleColumn' to retrieve the id of
+	  the first non-hidden column. Using this procedure in some place
+	  which have trouble to compute a sensible value for a hidden
+	  column (pointer location to row index for example). This fixes
+	  bug [455732].
 
 2000-09-24  Dan Kuchler  <kuchler@ajubasolutions.com>
 
