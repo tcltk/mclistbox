@@ -395,7 +395,7 @@ proc ::mclistbox::Build {w args} {
     # and then place the text widget over it so it is never
     # seen.
 
-    set columnWidgets [NewColumn $w {__hidden__}]
+    set columnWidgets [NewColumn $w {__hidden__} true]
     set widgets(hiddenFrame)   [lindex $columnWidgets 0]
     set widgets(hiddenListbox) [lindex $columnWidgets 1]
     set widgets(hiddenLabel)   [lindex $columnWidgets 2]
@@ -668,8 +668,9 @@ proc ::mclistbox::SetClassBindings {} {
 #
 # Arguments:
 #
-#    w     the widget pathname
-#    id    the id for the new column
+#    w       the widget pathname
+#    id      the id for the new column
+#    hidden  boolean indicating if this is a hidden column (HACK! YUCK!)
 #
 # Results:
 #
@@ -686,15 +687,20 @@ proc ::mclistbox::SetClassBindings {} {
 #    the path to the column listbox, and the path to the column
 #    label, in that order.
 
-proc ::mclistbox::NewColumn {w id} {
+proc ::mclistbox::NewColumn {w id {hidden false}} {
     upvar ::mclistbox::${w}::widgets   widgets
     upvar ::mclistbox::${w}::options   options
     upvar ::mclistbox::${w}::misc      misc
     upvar ::mclistbox::${w}::columnID  columnID
 
     # the columns are all children of the text widget we created... 
+    if { $hidden } {
+	set parent $w
+    } else {
+	set parent $w.text
+    }
     set frame     \
-	    [frame $w.frame$id \
+	    [frame $parent.frame$id \
 	    -takefocus 0 \
 	    -highlightthickness 0 \
 	    -class MclistboxColumn \

@@ -1,3 +1,22 @@
+1999-10-15  Eric Melski  <ericm@scriptics.com>
+
+	* mclistbox.tcl: Added a flag "hidden" to NewColumn (defaults to false),
+	which controls if the column will be a hidden column or not.  Hidden cols
+	are children of the frame, non-hidden ones are children of the text widget.
+	This makes clipping work correctly for the non-hidden columns (ie, they
+	no longer run over the border).  This is kind of a kludgy way to do it,
+	but it's safer than introducing another widget (which would be the 
+	"correct" way to do it -- put an enclosing frame on the widget, and
+	use that to show the border, etc).
+
+1999-10-15  Eric Melski  <ericm@scriptics.com>
+
+	* mclistbox.tcl: Added widgetDefault values for drag/drop options;
+	extended edit command to allow the specification of a validate
+	command, for validating the input before withdrawing the widgets;
+	added tests of dropenabled/dragenabled in NewColumn, to only
+	register the widget as a drag/drop site if it is enabled.
+
 1999-10-14  Eric Melski  <ericm@scriptics.com>
 
 	* mclistbox.tcl: Extended drag-and-drop support with a -dropcursor
