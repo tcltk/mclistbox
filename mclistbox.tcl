@@ -737,7 +737,6 @@ proc ::mclistbox::NewColumn {w id {hidden false}} {
     set button \
 	    [button $frame.editbutton \
 	    -bd 1        \
-	    -width 4     \
 		-padx 0      \
 		-pady 0      \
 	    -text "Edit" \
@@ -1094,12 +1093,16 @@ proc ::mclistbox::Column-configure {w id args} {
 		}
 		if { $value } {
 		    # Add the button
+			set fnt [$editbutton cget -font]
+			set txt [$editbutton cget -text]
+			set w   [expr {[font measure $fnt $txt]*1.6}]
 		    place $editbutton		\
 			    -in		$label	\
 			    -anchor	e	\
 			    -relx	0.98	\
 			    -rely	0.5	\
-			    -relheight	1
+				-width  $w  \
+			    -relheight 0.96	
 		} else {
 		    # Remove the button
 		    place forget $editbutton
