@@ -153,6 +153,7 @@ proc ::mclistbox::Init {} {
 	    -width              {width                Width} \
 	    -editable           {editable             Editable} \
 	    -editcommand        {editcommand          Editcommand} \
+	    -listvar            {listvar              Listvar} \
             ]
 
     # this defines the valid widget commands. It's important to
@@ -860,6 +861,7 @@ proc ::mclistbox::Column-add {w args} {
     set opts(-label)       $id
     set opts(-editable)    0
     set opts(-editcommand) ""
+    set opts(-listvar)     ""
 
     if {[expr {[llength $args]%2}] == 1} {
 	# hmmm. An odd number of elements in args
@@ -1116,6 +1118,11 @@ proc ::mclistbox::Column-configure {w id args} {
 	    -editcommand {
 		# Set the editcommand for the column
 		set options($id:-editcommand) $value
+	    }
+
+            -listvar {
+                # Set the list variable for the column
+                $listbox configure $option $value
 	    }
 	}
     }
