@@ -1,5 +1,9 @@
 AC_INIT(mclistbox.tcl)
 
+AC_CONFIG_AUX_DIR(config)
+CONFIGDIR=${srcdir}/config
+AC_SUBST(CONFIGDIR)
+
 PACKAGE=mclistbox
 
 MAJOR_VERSION=1
@@ -40,5 +44,4 @@ esac
 AC_SUBST(CYGPATH)
 
 AC_OUTPUT([Makefile \
-	pkgIndex.tcl],
-	chmod +x ${srcdir}/install-sh ${srcdir}/mkinstalldirs)
+	pkgIndex.tcl])
