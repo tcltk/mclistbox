@@ -157,7 +157,7 @@ proc ::mclistbox::Init {} {
     # expand abbreviations.
     set widgetCommands [list \
 	    activate	 bbox       cget     column    configure  \
-	    curselection delete     get      index     insert \
+	    curselection delete     edit get      index     insert \
 	    label        nearest    scan     see       selection  \
 	    size         xview      yview
     ]
@@ -702,7 +702,7 @@ proc ::mclistbox::NewColumn {w id} {
 	    -selectmode $options(-selectmode) \
 	    -highlightthickness 0 \
 	    ]
-    bind $listbox <FocusIn> "focus $w"
+
     set label     \
 	    [label $frame.label \
 	    -takefocus 0 \
@@ -1395,6 +1395,14 @@ proc ::mclistbox::WidgetProc {w command args} {
 	    InvalidateScrollbars $w
 
 	    set result ""
+	}
+
+	edit {
+	    if { [llength $args] != 2 } {
+		error "wrong \# of args: should be $w edit column index"
+	    }
+	    foreach {column index} $args break
+	    set result [::mclistbox::edit $w $column $index]
 	}
 
 	get {
@@ -2888,5 +2896,96 @@ proc ::mclistbox::_drop_drag_frame_cmd {path source X Y op type data} {
 
     return [::mclistbox::_drop_cmd $path $source $X $Y $op $type $data]
 }
+
+# ::mclistbox::edit --
+#
+#	Perform an inline edit on a given column and index of the listbox.
+#
+# Arguments:
+#	w       name of the mclistbox megawidget
+#       id      column to edit
+#       index   index to edit
+#
+# Results:
+#	The new value, or "" if the user cancelled the operation.
+
+proc ::mclistbox::edit {w id index} {
+    upvar ::mclistbox::${w}::widgets widgets
+    
+    # bail if they gave us a bogus id
+    if { [CheckColumnID $w $id] == -1 } {
+	return -code error "invalid column $id"
+    }
+
+    # define some shorthand
+    set listbox $widgets(listbox$id)
+    set frame   $widgets(frame$id)
+
+    set initval [$listbox get $index]
+
+    # Compute the geometry for the inline editing widget
+    # It's computed from the bbox of the text and the select border width.
+    set sbw [$listbox cget -selectborderwidth]
+    foreach {x y w h} [$listbox bbox $index] break
+    foreach {lx ly lw lh} { 0 0 0 0 } break
+    scan [winfo geometry $listbox] "%dx%d+%d+%d" lw lh lx ly
+    set  x 0
+    incr y [expr {($sbw * -1) + $ly}]
+    set  w [winfo width $frame]
+    incr h [expr {1 + $sbw * 2}]
+
+    # Create the widgets
+    set fr  [frame $frame._inlineEditFrame \
+	    -borderwidth 0                   \
+	    -highlightthickness 0            \
+	    -relief flat]
+    set ent [entry $fr.edit       \
+	    -borderwidth 1        \
+	    -highlightthickness 0 \
+	    -relief solid         \
+	    -selectborderwidth 0  -font [$listbox cget -font]]
+    pack $ent -expand yes -fill both
+
+    # Set up bindings so that we can tell when the user is done
+    set ::mclistbox::_edit(wait) 0
+    bind $ent <KeyPress-Return> [list set ::mclistbox::_edit(wait) 1]
+    bind $ent <KeyPress-Escape> [list set ::mclistbox::_edit(wait) 0]
+    bind $fr  <Button>          [list set ::mclistbox::_edit(wait) 3]
+
+    # Setup the entry with the initial value
+    $ent insert end $initval
+    $ent selection range 0 end
+    $ent icursor end
+    $ent xview end
+    
+    # Place the widgets on the screen
+    place $fr -in $frame -x $x -y $y -width $w -height $h
+    
+    # Make sure they are visible
+    tkwait visibility $ent
+    
+    # Grab input so that the user can't do anything until they finish
+    # with the inline edit
+    grab $fr
+
+    focus -force $ent
+    
+    # Wait for the user to finish the edit
+    vwait ::mclistbox::_edit(wait)
+    
+    # Grab the new value
+    set result [$ent get]
+    
+    # Release the gui grab and destroy the inline edit widgets
+    grab release $fr
+    destroy $fr
+    
+    if { $::mclistbox::_edit(wait) & 1 } {
+	return $result
+    }
+    return ""
+}
+
+
 
 # end of mclistbox.tcl
