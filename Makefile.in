@@ -1,0 +1,117 @@
+# Makefile.in --
+#
+#	This file is a Makefile for the BLE executable.
+#
+# Copyright (c) 1999 Scriptics Corporation.
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: Makefile.in,v 1.1 1999/09/14 03:31:48 wart Exp $
+
+
+MCLISTBOX_SOURCES = \
+	mclistbox.tcl
+
+PKGINDEX_TCL = \
+	$(srcdir)/pkgIndex.tcl
+
+#========================================================================
+# Nothing of the variables below this line need to be changed.
+#========================================================================
+
+SHELL = @SHELL@
+EXEEXT	= @EXEEXT@
+
+srcdir = @srcdir@
+top_srcdir = @top_srcdir@
+prefix = @prefix@
+exec_prefix = @exec_prefix@
+bindir = @bindir@
+
+pkglibdir = ${prefix}/lib/@PACKAGE@@VERSION@
+
+top_builddir = .
+
+INSTALL = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_DATA = @INSTALL_DATA@
+INSTALL_SCRIPT = @INSTALL_SCRIPT@
+
+PACKAGE = @PACKAGE@
+VERSION = @VERSION@
+TCLSH = @TCLSH@
+PROWRAP = @PROWRAP@
+AUTOCONF = autoconf
+CYGPATH=@CYGPATH@
+mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
+
+#========================================================================
+# TEA TARGETS.  Please note that the "libraries:" target refers to platform
+# independent files, and the "binaries:" target inclues executable programs and
+# platform-dependent libraries.  Modify these targets so that they install
+# the various pieces of your package.  The make and install rules
+# for the BINARIES that you specified above have already been done.
+#========================================================================
+
+all: binaries libraries doc
+
+binaries:
+
+libraries:
+
+doc:
+
+install: all install-binaries install-libraries install-doc
+
+test:
+
+depend:
+
+install-binaries:
+
+install-libraries: installdirs
+	@echo "Installing script files in $(pkglibdir)"
+	@for i in $(MCLISTBOX_SOURCES) ; do \
+	    $(INSTALL_SCRIPT) $(srcdir)/$$i $(pkglibdir) ; \
+	done;
+	$(INSTALL_SCRIPT) $(PKGINDEX_TCL) $(pkglibdir)
+
+install-doc:
+	@echo "Installing html documentation in $(prefix)/doc/$(PACKAGE)$(VERSION)"
+	@for i in $(srcdir)/*.html ; do \
+	    $(INSTALL_SCRIPT) $$i $(prefix)/doc/$(PACKAGE)$(VERSION) ; \
+	done;
+
+installdirs:
+	$(mkinstalldirs) $(pkglibdir)
+	$(mkinstalldirs) $(prefix)/doc/$(PACKAGE)$(VERSION)
+
+clean:  
+	-test -z "$(BINARIES)" || rm -f $(BINARIES)
+	-rm -f *.o core *.core
+	-rm -f *.$(OBJEXT)
+	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
+
+distclean: clean
+	-rm -f *.tab.c
+	-rm -f Makefile $(CONFIG_CLEAN_FILES)
+	-rm -f config.cache config.log stamp-h stamp-h[0-9]*
+	-rm -f config.status
+
+Makefile: $(srcdir)/Makefile.in  $(top_builddir)/config.status
+	cd $(top_builddir) \
+	  && CONFIG_FILES=$@ CONFIG_HEADERS= $(SHELL) ./config.status
+
+#config.status: $(srcdir)/configure
+#	$(SHELL) ./config.status --recheck
+
+#$(srcdir)/configure: $(srcdir)/configure.in
+#	cd $(srcdir) && $(AUTOCONF) -l $(srcdir)/../../../sampleextension
+
+.PHONY: all binaries clean depend distclean doc install installdirs \
+libraries test
+
+# Tell versions [3.59,3.63) of GNU make to not export all variables.
+# Otherwise a system limit (for SysV at least) may be exceeded.
+.NOEXPORT:
