@@ -1,3 +1,18 @@
+1999-10-28  Eric Melski  <ericm@scriptics.com>
+
+	* mclistbox.tcl: Added -editable/-editcommand for columns and 
+	-iseditableindexcommand for the listbox.  The first two control the 
+	placement and function of an "Edit" button for the specified column --
+	if editable is true, the button is there.  When clicked, it calls 
+	-editcommand with the name of the megawidget, the column name and the
+	currently selected index.
+
+	The third allows the user to specify a function that will return 1 or 0,
+	indicating whether the selected index (or indices) are editable.  If
+	they are, then the Edit buttons are enabled; if not, they are disabled.
+	If not iseditableindexcommand is set, then the buttons are enabled 
+	anytime there is just one item selected (ie, no multi-selections allowed).
+
 1999-10-25  Eric Melski  <ericm@scriptics.com>
 
 	* mclistbox.tcl: Fixed a small bug with drag&drop and the insertion frame.

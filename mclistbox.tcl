@@ -736,12 +736,17 @@ proc ::mclistbox::NewColumn {w id {hidden false}} {
 
     set button \
 	    [button $frame.editbutton \
-	    -bd 1 \
+	    -bd 1        \
+	    -width 1     \
 	    -text "Edit" \
-	    -font [list helvetica 8] \
 	    -command [list ::mclistbox::_editButtonCommand $w $id] \
 	    -state disabled
 	    ]
+    # Pick up the font family from the default, but change the size to 8 point
+    # (so it's very small) and drop any bold/italic/whatever modifiers
+    foreach {fontFamily fontSize} [$button cget -font] break
+    set fontSize 8
+    $button configure -font [list $fontFamily $fontSize]
 
     # define mappings from widgets to columns
     set columnID($label) $id
@@ -1087,18 +1092,12 @@ proc ::mclistbox::Column-configure {w id args} {
 		}
 		if { $value } {
 		    # Add the button
-		    set fnt       [$editbutton cget -font]
-		    set linespace [font metrics $fnt -linespace]
-		    set labelH    [winfo height $label]
-		    set w [expr {[font measure $fnt "Edit"] + 10}]
-		    set h [expr {$linespace + 6}]
-		    place $editbutton \
-			    -in $label \
-			    -anchor e  \
-			    -relx   1.0  \
-			    -rely   0.5  \
-			    -height $h \
-			    -width  $w
+		    place $editbutton		\
+			    -in		$label	\
+			    -anchor	e	\
+			    -relx	0.98	\
+			    -rely	0.5	\
+			    -relheight	0.9
 		} else {
 		    # Remove the button
 		    place forget $editbutton
