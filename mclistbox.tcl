@@ -119,6 +119,8 @@ proc ::mclistbox::Init {} {
 	    -width               {width               Width} \
 	    -xscrollcommand      {xScrollCommand      ScrollCommand} \
 	    -yscrollcommand      {yScrollCommand      ScrollCommand} \
+	    -iseditableindexcommand \
+	    {isEditableIndexCommand IsEditableIndexCommand} \
 	    ]
 
     # If we have bwidget, add the bwidget drag-and-drop stuff.
@@ -149,6 +151,8 @@ proc ::mclistbox::Init {} {
 	    -resizable          {resizable            Resizable} \
 	    -visible            {visible              Visible} \
 	    -width              {width                Width} \
+	    -editable           {editable             Editable} \
+	    -editcommand        {editcommand          Editcommand} \
             ]
 
     # this defines the valid widget commands. It's important to
@@ -161,7 +165,7 @@ proc ::mclistbox::Init {} {
 	    selection  	 size       xview    yview
     ]
 
-    set columnCommands [list add cget configure delete names nearest]
+    set columnCommands [list add cget configure delete names nearest x]
     set labelCommands  [list bind]
 
     ######################################################################
@@ -227,6 +231,7 @@ proc ::mclistbox::Init {} {
 	option add *Mclistbox.resizableColumns    1      widgetDefault
 	option add *Mclistbox.selectcommand       {}     widgetDefault
 	option add *Mclistbox.fillcolumn          {}     widgetDefault
+	option add *Mclistbox.iseditableindexcommand   {} widgetDefault
 
 	# Bwidget stuff
 	option add *Mclistbox.dragEndCmd          {}     widgetDefault
@@ -248,6 +253,10 @@ proc ::mclistbox::Init {} {
 	option add *Mclistbox*MclistboxColumn.width         0      widgetDefault
 	option add *Mclistbox*MclistboxColumn.bitmap        ""     widgetDefault
 	option add *Mclistbox*MclistboxColumn.image         ""     widgetDefault
+	option add *Mclistbox*MclistboxColumn.editable      \
+		0   widgetDefault
+	option add *Mclistbox*MclistboxColumn.editcommand      \
+		""  widgetDefault
     }
 
     ######################################################################
@@ -683,9 +692,9 @@ proc ::mclistbox::SetClassBindings {} {
 #
 # Returns:
 #
-#    A list of three elements: the path to the column frame, 
-#    the path to the column listbox, and the path to the column
-#    label, in that order.
+#    A list of four elements: the path to the column frame, 
+#    the path to the column listbox, the path to the column
+#    label, and the path to the editbutton, in that order.
 
 proc ::mclistbox::NewColumn {w id {hidden false}} {
     upvar ::mclistbox::${w}::widgets   widgets
@@ -725,10 +734,20 @@ proc ::mclistbox::NewColumn {w id {hidden false}} {
 	    -highlightthickness 0 \
 	    ]
 
+    set button \
+	    [button $frame.editbutton \
+	    -bd 1 \
+	    -text "Edit" \
+	    -font [list helvetica 8] \
+	    -command [list ::mclistbox::_editButtonCommand $w $id] \
+	    -state disabled
+	    ]
+
     # define mappings from widgets to columns
     set columnID($label) $id
     set columnID($frame) $id
     set columnID($listbox) $id
+    set columnID($button) $id
 
     # we're going to associate a new bindtag for the label to
     # handle our resize bindings. Why? We want the bindings to
@@ -784,7 +803,7 @@ proc ::mclistbox::NewColumn {w id {hidden false}} {
 
 
     # return a list of the widgets we created.
-    return [list $frame $listbox $label]
+    return [list $frame $listbox $label $button]
 }
 
 # ::mclistbox::Column-add --
@@ -857,7 +876,10 @@ proc ::mclistbox::Column-add {w args} {
     set widgets(frame$id)   [lindex $widgetlist 0]
     set widgets(listbox$id) [lindex $widgetlist 1]
     set widgets(label$id)   [lindex $widgetlist 2]
-    
+    # ericm@scriptics
+    set widgets(editbutton$id)  [lindex $widgetlist 3]
+    # ericm@scriptics
+
     # add this column to the list of known columns
     lappend misc(columns) $id
 
@@ -905,6 +927,7 @@ proc ::mclistbox::Column-configure {w id args} {
     set listbox $widgets(listbox$id)
     set frame   $widgets(frame$id)
     set label   $widgets(label$id)
+    set editbutton $widgets(editbutton$id)
 
     if {[llength $args] == 0} {
 	# hmmm. User must be wanting all configuration information
@@ -1056,6 +1079,36 @@ proc ::mclistbox::Column-configure {w id args} {
 		$widgets(text) configure -state disabled
  	    }
 
+	    -editable {
+		# Toggle the editable flag for the column; add or
+		# remove the editable button as needed
+		if { ![string is boolean $value] } {
+		    error "expected boolean value but got \"$value\""
+		}
+		if { $value } {
+		    # Add the button
+		    set fnt       [$editbutton cget -font]
+		    set linespace [font metrics $fnt -linespace]
+		    set labelH    [winfo height $label]
+		    set w [expr {[font measure $fnt "Edit"] + 10}]
+		    set h [expr {$linespace + 6}]
+		    place $editbutton \
+			    -in $label \
+			    -anchor e  \
+			    -relx   1.0  \
+			    -rely   0.5  \
+			    -height $h \
+			    -width  $w
+		} else {
+		    # Remove the button
+		    place forget $editbutton
+		}
+	    }
+
+	    -editcommand {
+		# Set the editcommand for the column
+		set options($id:-editcommand) $value
+	    }
 	}
     }
 }
@@ -1320,6 +1373,7 @@ proc ::mclistbox::WidgetProc {w command args} {
 		unset widgets(frame$id)
 		unset widgets(listbox$id)
 		unset widgets(label$id)
+		unset widgets(editbutton$id)
 	    }
 	    InvalidateScrollbars $w
 	    set result ""
@@ -1359,6 +1413,14 @@ proc ::mclistbox::WidgetProc {w command args} {
 	    set index [lindex $tmp 1]
 
 	    set result [lindex $misc(columns) $index]
+	}
+
+	column-x {
+	    if {[llength $args] != 1} {
+		error "wrong # of args: should be \"$w column x name\""
+	    }
+	    set id     [lindex $args 0]
+	    set result [winfo x $widgets(frame$id)]
 	}
 
 	cget {
@@ -1668,6 +1730,30 @@ proc ::mclistbox::WidgetProc {w command args} {
 	    }
 	}
     }
+
+    # ericm@scriptics.com
+    # If there is exactly ONE thing selected, then enable the edit buttons
+    set column [lindex $misc(columns) 0]
+    if { ![string equal $column ""] } {
+	set cursel [$widgets(listbox$column) curselection]
+	set cmd    $options(-iseditableindexcommand)
+	set state  disabled
+	if { [string equal $cmd ""] } {
+	    if {[llength $cursel] == 1} {
+		set state normal
+	    }
+	} else {
+	    if { [llength $cursel] } {
+		if { [uplevel \#0 $cmd $w $cursel] } {
+		    set state normal
+		}
+	    }
+	}
+	foreach editbutton [array names widgets editbutton*] {
+	    $widgets($editbutton) configure -state $state
+	}
+    }
+    # ericm@scriptics.com
 
     return $result
 }
@@ -2211,6 +2297,13 @@ proc ::mclistbox::Configure {w args} {
 		}
 		set options($option) $newValue
 	    }
+
+	    -iseditableindexcommand {
+		# Used to determine if the edit buttons should be 
+		# enabled or disabled.
+		set options($option) $newValue
+	    }
+
 	}
     }
 }
@@ -3020,6 +3113,37 @@ proc ::mclistbox::edit {w id index {vcmd ""}} {
 	return $result
     }
     return ""
+}
+
+# ::mclistbox::_editButtonCommand --
+#
+#	Called in response to a click on an edit button.  Calls out to
+#       the user specified editcommand for the column that was clicked,
+#       if such a command is defined and if something is selected.
+#
+# Arguments:
+#	w         megawidet pathname
+#       column    column that was clicked
+#
+# Results:
+#	None.
+
+proc ::mclistbox::_editButtonCommand {w column} {
+    upvar ::mclistbox::${w}::widgets widgets
+    upvar ::mclistbox::${w}::options options
+    
+    # Setup some shorthand
+    set listbox $widgets(listbox$column)
+    set index [$listbox curselection]
+    if { [llength $index] != 1 } {
+	return
+    }
+    
+    set cmd $options($column:-editcommand)
+    if { ![string equal $cmd ""] } {
+	uplevel \#0 $cmd $w $column $index
+    }
+    return
 }
 
 
