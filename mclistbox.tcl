@@ -2881,7 +2881,7 @@ proc ::mclistbox::_over_drag_frame_cmd {path source event X Y op type data} {
     # "left" the column and "entered" the dragframe).
     set win  [file root $path]
     set col  [$win column nearest [expr {$X - [winfo rootx $win]}]]
-    set path $win.frame${col}.listbox
+    set path $win.text.frame${col}.listbox
     return [::mclistbox::_over_cmd $path $source $event $X $Y $op $type $data]
 }
 
@@ -2908,7 +2908,7 @@ proc ::mclistbox::_drop_drag_frame_cmd {path source X Y op type data} {
     # "left" the column and "entered" the dragframe).
     set win  [file root $path]
     set col  [$win column nearest [expr {$X - [winfo rootx $win]}]]
-    set path $win.frame${col}.listbox
+    set path $win.text.frame${col}.listbox
 
     return [::mclistbox::_drop_cmd $path $source $X $Y $op $type $data]
 }

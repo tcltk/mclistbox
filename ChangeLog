@@ -1,3 +1,10 @@
+1999-10-25  Eric Melski  <ericm@scriptics.com>
+
+	* mclistbox.tcl: Fixed a small bug with drag&drop and the insertion frame.
+	The _over_drag_frame_cmd and _drop_drag_frame_cmd functions are brittle in
+	the sense that they are dependant on the way that the widgets in the 
+	megawidget are created.  Be sure to watch for that in the future.
+
 1999-10-15  Eric Melski  <ericm@scriptics.com>
 
 	* mclistbox.tcl: Added a flag "hidden" to NewColumn (defaults to false),
