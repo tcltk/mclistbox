@@ -1248,7 +1248,9 @@ proc ::mclistbox::WidgetProc {w command args} {
     }
 
     set result ""
-    catch {unset priorSelection}
+    if {[info exists priorSelection]} {
+        unset priorSelection
+    }
 
     # here we go. Error checking be damned!
     switch $command {
@@ -1763,7 +1765,9 @@ proc ::mclistbox::WidgetProc {w command args} {
 	    if {![info exists misc(skipRecursiveCall)]} {
 		set misc(skipRecursiveCall) 1
 		uplevel \#0 $options(-selectcommand) $currentSelection
-		catch {unset misc(skipRecursiveCall)}
+                if {[info exists misc(skipRecursiveCall)]} {
+		    unset misc(skipRecursiveCall)
+                }
 	    }
 	}
     }
@@ -2363,7 +2367,9 @@ proc ::mclistbox::UpdateScrollbars {w} {
     upvar ::mclistbox::${w}::misc    misc
 
     if {![winfo ismapped $w]} {
-	catch {unset misc(afterid)}
+        if {[info exists misc(afterid)]} {
+	    unset misc(afterid)
+        }
 	return
     }
 
@@ -2381,7 +2387,9 @@ proc ::mclistbox::UpdateScrollbars {w} {
 	    eval $options(-xscrollcommand) $xview
 	}
     }
-    catch {unset misc(afterid)}
+    if {[info exists misc(afterid)]} {  
+        unset misc(afterid)
+    }
 }
 
 # ::mclistbox::InvalidateScrollbars --
@@ -2822,7 +2830,9 @@ proc ::mclistbox::ResizeEvent {w type widget x X Y} {
 	    }
 
 	    # reset the state and the cursor
-	    catch {unset drag}
+            if {[info exists drag]} {
+	        unset drag
+            }
 	    $widgets(label$id) configure -cursor $options(-cursor)
 
 	}
