@@ -3030,11 +3030,11 @@ proc ::mclistbox::_drop_drag_frame_cmd {path source X Y op type data} {
 # Results:
 #	The new value, or "" if the user cancelled the operation.
 
-proc ::mclistbox::edit {w id index {vcmd ""}} {
-    upvar ::mclistbox::${w}::widgets widgets
+proc ::mclistbox::edit {widget id index {vcmd ""}} {
+    upvar ::mclistbox::${widget}::widgets widgets
     
     # bail if they gave us a bogus id
-    if { [CheckColumnID $w $id] == -1 } {
+    if { [CheckColumnID $widget $id] == -1 } {
 	return -code error "invalid column $id"
     }
 
@@ -3081,7 +3081,9 @@ proc ::mclistbox::edit {w id index {vcmd ""}} {
     bind $ent <KeyPress-Return> [list set ::mclistbox::_edit(wait) 1]
     bind $ent <KeyPress-Escape> [list set ::mclistbox::_edit(wait) 0]
     bind $fr  <Button>          [list set ::mclistbox::_edit(wait) 3]
-
+    set oldBinding [bind $widget <Leave>]
+    bind $widget <Leave> {break}
+    
     # Setup the entry with the initial value
     $ent insert end $initval
     $ent selection range 0 end
@@ -3120,6 +3122,8 @@ proc ::mclistbox::edit {w id index {vcmd ""}} {
     # Release the gui grab and destroy the inline edit widgets
     grab release $fr
     destroy $fr
+    update
+    bind $widget <Leave> $oldBinding
     
     if { $::mclistbox::_edit(wait) & 1 } {
 	return $result
