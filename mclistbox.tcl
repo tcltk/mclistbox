@@ -1498,16 +1498,16 @@ proc ::mclistbox::WidgetProc {w command args} {
 	}
 
 	edit {
-	    if { [llength $args] != 2 && [llength $args] != 3 } {
-		error "wrong \# of args: should be $w edit column index"
+	    if { [llength $args] != 3 && [llength $args] != 4 } {
+		error "wrong \# of args: should be $w edit column index var"
 	    }
 	    set result [eval ::mclistbox::edit $w $args]
 	}
 
 	editcombo {
-	    if { [llength $args] != 3 } {
+	    if { [llength $args] != 4 } {
 		error "wrong \# of args: should be $w editcombo\
-			column index values"
+			column index var values"
 	    }
 	    set result [eval ::mclistbox::editcombo $w $args]
 	}
@@ -3093,8 +3093,9 @@ proc ::mclistbox::_drop_drag_frame_cmd {path source X Y op type data} {
 #
 # Arguments:
 #	w       name of the mclistbox megawidget
-#       id      column to edit
-#       index   index to edit
+#	id      column to edit
+#	index   index to edit
+#	var	name of the variable to fill with a value
 #       vcmd    script used to validate the input; if null, no validation
 #               will occur.  If non-null, names a function that will be passed
 #               the input and will return a boolean indicating whether or not
@@ -3104,14 +3105,15 @@ proc ::mclistbox::_drop_drag_frame_cmd {path source X Y op type data} {
 
 #
 # Results:
-#	The new value, or "" if the user cancelled the operation.
+#	Boolean indicating success or failure of edit (1 == success)
 
-proc ::mclistbox::edit {widget id index {vcmd ""}} {
+proc ::mclistbox::edit {widget id index var {vcmd ""}} {
     upvar ::mclistbox::${widget}::widgets widgets
-    
+    upvar 3 $var result
+
     # bail if they gave us a bogus id
     if { [CheckColumnID $widget $id] == -1 } {
-	return -code error "invalid column $id"
+	error "invalid column $id"
     }
 
     # define some shorthand
@@ -3122,7 +3124,8 @@ proc ::mclistbox::edit {widget id index {vcmd ""}} {
     # am not 100% sure that this is all we have to do, but it sure
     # is better than throwing a stack trace :-).
     if {[winfo exists $listbox._inlineEditFrame]} {
-        return ""
+	set result ""
+        return 0
     }
 
     set initval [$listbox get $index]
@@ -3132,7 +3135,8 @@ proc ::mclistbox::edit {widget id index {vcmd ""}} {
     set sbw [$listbox cget -selectborderwidth]
     set bbox [$listbox bbox $index]
     if { [string equal $bbox ""] } {
-	return ""
+	set result ""
+	return 0
     }
     foreach {x y w h} $bbox break
     set  x 0
@@ -3202,9 +3206,10 @@ proc ::mclistbox::edit {widget id index {vcmd ""}} {
     bind $widget <Leave> $oldBinding
     
     if { $::mclistbox::_edit(wait) & 1 } {
-	return $result
+	return 1
     }
-    return ""
+    set result ""
+    return 0
 }
 
 # ::mclistbox::editcombo --
@@ -3216,21 +3221,24 @@ proc ::mclistbox::edit {widget id index {vcmd ""}} {
 #	w	name of the mclistbox megawidget
 #	id	column to edit
 #	index	index to edit
+#	var	name of the variable to place the return result in
 #	values	list of initial values for the combobox
 #
 # Results:
-#	The new value, or "" if the user cancelled the operation.
+#	boolean indicating success or failure of edit (1 == success)
 
-proc ::mclistbox::editcombo {widget id index values} {
+proc ::mclistbox::editcombo {widget id index var values} {
+    upvar 3 $var result
     if { !$::mclistbox::bwidget } {
-	return ""
+	set result ""
+	return 0
     }
 
     upvar ::mclistbox::${widget}::widgets widgets
     
     # bail if they gave us a bogus id
     if { [CheckColumnID $widget $id] == -1 } {
-	return -code error "invalid column $id"
+	error "invalid column $id"
     }
 
     # define some shorthand
@@ -3241,7 +3249,8 @@ proc ::mclistbox::editcombo {widget id index values} {
     # am not 100% sure that this is all we have to do, but it sure
     # is better than throwing a stack trace :-).
     if {[winfo exists $listbox._inlineEditFrame]} {
-        return ""
+        set result ""
+	return 0
     }
 
     set initval [$listbox get $index]
@@ -3251,7 +3260,8 @@ proc ::mclistbox::editcombo {widget id index values} {
     set sbw [$listbox cget -selectborderwidth]
     set bbox [$listbox bbox $index]
     if { [string equal $bbox ""] } {
-	return ""
+	set result ""
+	return 0
     }
     foreach {x y w h} $bbox break
     set  x 0
@@ -3316,9 +3326,9 @@ proc ::mclistbox::editcombo {widget id index values} {
     bind $widget <Leave> $oldBinding
     
     if { $::mclistbox::_edit(wait) & 1 } {
-	return $result
+	return 1
     }
-    return ""
+    return 0
 }
 
 # ::mclistbox::_editButtonCommand --

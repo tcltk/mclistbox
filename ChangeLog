@@ -1,4 +1,11 @@
-1999-11-23  Eric Melski  <ericm@scriptics.com>
+1999-12-10  Eric Melski  <ericm@scriptics.com>
+
+	* mclistbox.tcl: Changed syntax of edit/editcombo to take the name of a
+	return variable as a parameter and return 0/1 for failure/success, instead
+	of returning null/non-null (because some people feel they need to be able
+	to allow null values or some such nonsense...)
+
+1999-12-09  Eric Melski  <ericm@scriptics.com>
 
 	* mclistbox.tcl: Added auto-scroll for drag-and-drop.  When dragging over
 	the listbox, it will scroll the listbox up or down if the cursor is in a
