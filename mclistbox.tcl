@@ -753,7 +753,7 @@ proc ::mclistbox::NewColumn {w id} {
     if { $::mclistbox::bwidget } {
 	DragSite::register $listbox                      \
 		-draginitcmd ::mclistbox::_init_drag_cmd \
-		-dragendcmd  $options(-dragendcmd)       \
+		-dragendcmd  ::mclistbox::_drag_end_cmd  \
 		-dragevent 1
 
 	DropSite::register $listbox                 \
@@ -2710,7 +2710,8 @@ proc ::mclistbox::_over_cmd {path source event X Y op type data} {
     upvar ::mclistbox::${path}::options options
     set cmd $options(-dropovercmd)
     if { ![string equal $cmd ""] } {
-	set res [uplevel \#0 $cmd [list $path $source $index $op $type $data]]
+	set res [uplevel \#0 $cmd [list \
+		$path $source $event $index $op $type $data]]
     } else {
 	set res 3
     }
@@ -2719,7 +2720,7 @@ proc ::mclistbox::_over_cmd {path source event X Y op type data} {
 #	$path selection clear 0 end
 #	$path selection set $index
 	if { ![winfo exists $path._dragframe] } {
-	    frame $path._dragframe -borderwidth 1 -height 2 -relief solid
+	    frame $path._dragframe -height 2 -bg black
 	    DropSite::register $path._dragframe \
 		    -droptypes $options(-droptypes) \
 		    -dropovercmd ::mclistbox::_over_drag_frame_cmd \
@@ -2740,6 +2741,33 @@ proc ::mclistbox::_over_cmd {path source event X Y op type data} {
         DropSite::setcursor dot
     }
     return $res
+}
+
+# ::mclistbox::_drag_end_cmd --
+#
+#	Cleanup after a drag event.
+#
+# Arguments:
+#	path            target of the over event
+#       source          source of the drag event
+#       op              operation, one of copy, move or link
+#       type            type of dragged data
+#       data            dragged data
+#       result          result of target's -dropcmd
+#
+# Results:
+#	None.
+
+proc ::mclistbox::_drag_end_cmd {path source op type data result} {
+    set path  [::mclistbox::convert $path -W]
+    upvar ::mclistbox::${path}::options options
+    if { [winfo exists $path._dragframe] } {
+	destroy $path._dragframe
+    }
+    set cmd $options(-dragendcmd)
+    if { ![string equal $cmd ""] } {
+	return [uplevel \#0 $cmd [list $path $source $op $type $data $result]]
+    }
 }
 
 # ::mclistbox::_drop_cmd --
