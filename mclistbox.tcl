@@ -737,7 +737,9 @@ proc ::mclistbox::NewColumn {w id {hidden false}} {
     set button \
 	    [button $frame.editbutton \
 	    -bd 1        \
-	    -width 1     \
+	    -width 4     \
+		-padx 0      \
+		-pady 0      \
 	    -text "Edit" \
 	    -command [list ::mclistbox::_editButtonCommand $w $id] \
 	    -state disabled
