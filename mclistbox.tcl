@@ -1099,7 +1099,8 @@ proc ::mclistbox::Column-configure {w id args} {
 		    place $editbutton		\
 			    -in		$label	\
 			    -anchor	ne	\
-			    -relx	0.98	\
+			    -relx	1.0	\
+				-x      -2  \
 			    -rely	0.0	\
 				-width  $w  \
 			    -relheight 1.0	
