@@ -678,7 +678,7 @@ proc ::mclistbox::NewColumn {w id} {
 	    -selectmode $options(-selectmode) \
 	    -highlightthickness 0 \
 	    ]
-    bind $listbox <FocusIn> "focus $w"
+#    bind $listbox <FocusIn> "focus $w"
     set label     \
 	    [label $frame.label \
 	    -takefocus 0 \
