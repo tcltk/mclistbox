@@ -1095,14 +1095,14 @@ proc ::mclistbox::Column-configure {w id args} {
 		    # Add the button
 			set fnt [$editbutton cget -font]
 			set txt [$editbutton cget -text]
-			set w   [expr {[font measure $fnt $txt]*1.6}]
+			set w   [expr {[font measure $fnt $txt]*1.5}]
 		    place $editbutton		\
 			    -in		$label	\
-			    -anchor	e	\
+			    -anchor	ne	\
 			    -relx	0.98	\
-			    -rely	0.5	\
+			    -rely	0.0	\
 				-width  $w  \
-			    -relheight 0.96	
+			    -relheight 1.0	
 		} else {
 		    # Remove the button
 		    place forget $editbutton
