@@ -3148,19 +3148,30 @@ proc ::mclistbox::_drag_end_cmd {path source op type data result} {
 #       1               for successful drop
 
 proc ::mclistbox::_drop_cmd {path source X Y op type data} {
-    set index [$path nearest [expr {$Y - [winfo rooty $path]}]]
+    
+    set row [$path nearest [expr {$Y - [winfo rooty $path]}]]
     set path  [::mclistbox::convert $path -W]
-    upvar ::mclistbox::${path}::options options
+    upvar ::mclistbox::${path}::options   options
+    upvar ::mclistbox::${path}::misc      misc
+    upvar ::mclistbox::${path}::widgets   widgets
+
     if { [winfo exists $path._dragframe] } {
 	destroy $path._dragframe
     }
+
+    set x [expr {$X - [winfo rootx $path]}]
+    set tmp [$widgets(text) index @$x,0]
+    set tmp [split $tmp "."]
+    set index [lindex $tmp 1]
+    set column [lindex $misc(columns) $index]
+
     if { [info exists ::mclistbox::_scrollTimer($path)] } {
 	after cancel $::mclistbox::_scrollTimer($path)
 	unset ::mclistbox::_scrollTimer($path)
     }
     set cmd $options(-dropcmd)
     if { ![string equal $cmd ""] } {
-	return [uplevel \#0 $cmd [list $path $source $index $op $type $data]]
+	return [uplevel \#0 $cmd [list $path $source $row $column $op $type $data]]
     }
     return 0
 }
