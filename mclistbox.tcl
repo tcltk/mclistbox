@@ -3042,6 +3042,13 @@ proc ::mclistbox::edit {w id index {vcmd ""}} {
     set listbox $widgets(listbox$id)
     set frame   $widgets(frame$id)
 
+    # If there is already an edit session in progress, bail out. I 
+    # am not 100% sure that this is all we have to do, but it sure
+    # is better than throwing a stack trace :-).
+    if {[winfo exists $listbox._inlineEditFrame]} {
+        return ""
+    }
+
     set initval [$listbox get $index]
 
     # Compute the geometry for the inline editing widget
