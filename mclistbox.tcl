@@ -903,7 +903,9 @@ proc ::mclistbox::Column-add {w args} {
     # that's the right thing to do.
     if {$existingRows > 0} {
 	set blanks {}
-	for {set i 0} {$i < $existingRows} {incr i} {
+	# The new listbox may already have data in it (because of the listvar)
+        # so start iterating from [listbox size] instead of from 0
+	for {set i [$widgets(listbox$id) size]} {$i < $existingRows} {incr i} {
 	    lappend blanks {}
 	}
 	eval {$widgets(listbox$id)} insert end $blanks
