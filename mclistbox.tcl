@@ -2732,7 +2732,7 @@ proc ::mclistbox::_over_cmd {path source event X Y op type data} {
 	set res 3
     }
 
-    if { [expr {$res & 1}] } {
+    if { [expr {$res & 1}] && $event != "leave" } {
 	switch -exact -- $options(-dropcursor) {
 	    "before" -
 	    "after" {
@@ -2852,10 +2852,12 @@ proc ::mclistbox::_drop_cmd {path source X Y op type data} {
 #       3        to accept drag and allow future calls to _over_cmd
 
 proc ::mclistbox::_over_drag_frame_cmd {path source event X Y op type data} {
-    set win  [winfo parent $path]
+    # This is pretty gross -- we can't use winfo parent because the dragframe
+    # may have been nuked by the "leave" event on the column (ie -- the mouse
+    # "left" the column and "entered" the dragframe).
+    set win  [file root $path]
     set col  [$win column nearest [expr {$X - [winfo rootx $win]}]]
     set path $win.frame${col}.listbox
-
     return [::mclistbox::_over_cmd $path $source $event $X $Y $op $type $data]
 }
 
@@ -2877,7 +2879,10 @@ proc ::mclistbox::_over_drag_frame_cmd {path source event X Y op type data} {
 #       1               for successful drop
 
 proc ::mclistbox::_drop_drag_frame_cmd {path source X Y op type data} {
-    set win  [winfo parent $path]
+    # This is pretty gross -- we can't use winfo parent because the dragframe
+    # may have been nuked by the "leave" event on the column (ie -- the mouse
+    # "left" the column and "entered" the dragframe).
+    set win  [file root $path]
     set col  [$win column nearest [expr {$X - [winfo rootx $win]}]]
     set path $win.frame${col}.listbox
 
