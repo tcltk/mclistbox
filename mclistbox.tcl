@@ -1099,7 +1099,7 @@ proc ::mclistbox::Column-configure {w id args} {
 			    -anchor	e	\
 			    -relx	0.98	\
 			    -rely	0.5	\
-			    -relheight	0.9
+			    -relheight	1
 		} else {
 		    # Remove the button
 		    place forget $editbutton
