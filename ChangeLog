@@ -1,3 +1,9 @@
+2000-03-09  Sven Delmas  <sven@scriptics.com>
+
+	* mclistbox.tcl: Added a binding to Unmap, so that the grab is
+	released when the mclistbox (with the active inline editing entry)
+	is unmapped.
+
 1999-12-14  Eric Melski  <ericm@scriptics.com>
 
 	* mclistbox.tcl: Fixed some bugs in the _over_cmd dealing with empty 
