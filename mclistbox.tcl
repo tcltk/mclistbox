@@ -133,6 +133,7 @@ proc ::mclistbox::Init {} {
 		-dropovercmd    {dropOverCmd          DropOverCmd}  \
 		-dropovermode   {dropOverMode         DropOverMode} \
 		-droptypes      {dropTypes            DropTypes}    \
+		-dropcursor     {dropCursor           DropCursor}  \
 		]
 
     }
@@ -229,6 +230,7 @@ proc ::mclistbox::Init {} {
 	option add *Mclistbox.fillcolumn          {}     widgetDefault
 	option add *Mclistbox.dropTypes           \
 		{LISTBOX_ITEM {copy {} move {}}} widgetDefault
+	option add *Mclistbox.dropCursor          before   widgetDefault
 
 	# column options
 	option add *Mclistbox*MclistboxColumn.visible       1      widgetDefault
@@ -417,8 +419,9 @@ proc ::mclistbox::Build {w args} {
 	    "eval ::mclistbox::WidgetProc {$w} \$command \$args"
 
     # ok, the thing exists... let's do a bit more configuration. 
-    if {[catch "Configure $widgets(this) [array get options]" error]} {
+    if {[catch "Configure $widgets(this) [array get options]" res]} {
 	catch {destroy $w}
+	return -code error $res
     }
 
     # and be prepared to handle selections.. (this, for -exportselection
@@ -2037,13 +2040,13 @@ proc ::mclistbox::Configure {w args} {
 		set options($option) [$widgets(frame) cget $option]
 	    }
 
-	    # { the following all must be applied to each listbox }
 	    -foreground -
 	    -font -
 	    -selectborderwidth -
 	    -selectforeground -
 	    -selectbackground -
 	    -setgrid {
+		# { the following all must be applied to each listbox }
 		foreach id $misc(columns) {
 		    $widgets(listbox$id) configure $option $newValue
 		}
@@ -2051,8 +2054,8 @@ proc ::mclistbox::Configure {w args} {
 		set options($option) [$widgets(hiddenListbox) cget $option]
 	    }
 
-	    # { the following all must be applied to each listbox and frame }
 	    -cursor {
+		# { these must be applied to each listbox and frame }
 		foreach id $misc(columns) {
 		    $widgets(listbox$id) configure $option $newValue
 		    $widgets(frame$id) configure -cursor $newValue
@@ -2068,8 +2071,8 @@ proc ::mclistbox::Configure {w args} {
 		set options($option) [$widgets(hiddenListbox) cget $option]
 	    }
 
-	    # { this just requires to pack or unpack the labels }
 	    -labels {
+		# { this just requires to pack or unpack the labels }
 		if {$newValue} {
 		    set newValue 1
 		    foreach id $misc(columns) {
@@ -2107,9 +2110,9 @@ proc ::mclistbox::Configure {w args} {
 		set options($option) [$widgets(hiddenListbox) cget $option]
 	    }
 
-	    # { the following all must be applied to each column frame }
 	    -columnborderwidth -
 	    -columnrelief {
+		# { these must be applied to each column frame }
 		regsub {column} $option {} listboxoption
 		foreach id $misc(columns) {
 		    $widgets(listbox$id) configure $listboxoption $newValue
@@ -2127,7 +2130,6 @@ proc ::mclistbox::Configure {w args} {
 		}
 	    }
 	    
-	    # { the following all must be applied to each column header }
 	    -labelimage -
 	    -labelheight -
 	    -labelrelief -
@@ -2136,6 +2138,7 @@ proc ::mclistbox::Configure {w args} {
 	    -labelbackground -
 	    -labelforeground -
 	    -labelborderwidth {
+		# { these must be applied to each column header }
 		regsub {label} $option {} labeloption
 		foreach id $misc(columns) {
 		    $widgets(label$id) configure $labeloption $newValue
@@ -2144,12 +2147,12 @@ proc ::mclistbox::Configure {w args} {
 		set options($option) [$widgets(hiddenLabel) cget $labeloption]
 	    }
 
-	    # { the following apply only to the topmost frame}
 	    -borderwidth -
 	    -highlightthickness -
 	    -highlightcolor -
 	    -highlightbackground -
 	    -relief {
+		# { these apply only to the topmost frame}
 		$widgets(frame) configure $option $newValue
 		set options($option) [$widgets(frame) cget $option]
 	    }
@@ -2169,6 +2172,19 @@ proc ::mclistbox::Configure {w args} {
 
 	    -yscrollcommand {
 		InvalidateScrollbars $w
+		set options($option) $newValue
+	    }
+
+	    -dropcursor {
+		# bwidget stuff
+		set newValue [string tolower $newValue]
+		if { ![string equal $newValue "after"] && \
+			![string equal $newValue "before"] && \
+			![string equal $newValue "none"] && \
+			![string equal $newValue "on"] } {
+		    error "invalid dropcursor value \"$newValue\": should\
+			    be one of after, before, none, or on"
+		}
 		set options($option) $newValue
 	    }
 	}
@@ -2717,21 +2733,34 @@ proc ::mclistbox::_over_cmd {path source event X Y op type data} {
     }
 
     if { [expr {$res & 1}] } {
-#	$path selection clear 0 end
-#	$path selection set $index
-	if { ![winfo exists $path._dragframe] } {
-	    frame $path._dragframe -height 2 -bg black
-	    DropSite::register $path._dragframe \
-		    -droptypes $options(-droptypes) \
-		    -dropovercmd ::mclistbox::_over_drag_frame_cmd \
-		    -dropcmd     ::mclistbox::_drop_drag_frame_cmd
+	switch -exact -- $options(-dropcursor) {
+	    "before" -
+	    "after" {
+		if { ![winfo exists $path._dragframe] } {
+		    frame $path._dragframe -height 2 -bg black
+		    DropSite::register $path._dragframe \
+			    -droptypes $options(-droptypes) \
+			    -dropovercmd ::mclistbox::_over_drag_frame_cmd \
+			    -dropcmd     ::mclistbox::_drop_drag_frame_cmd
+		}
+		foreach {x1 y1 w1 h1} [$path bbox $index] break
+		# decr y1 to account for bbox's overestimate
+		incr y1 -1
+		if { [string equal $options(-dropcursor) "before"] } {
+		    # decr y1 to account for frame height
+		    incr y1 -2
+		    # decr y1 by the selectborderwidth
+		    incr y1 [expr {[$path cget -selectborderwidth] * -1}]
+		} else {
+		    incr y1 $h1
+		}
+		place $path._dragframe -in $path -x 0 -y $y1 -width $w1
+	    }
+	    "on" {
+		$path selection clear 0 end
+		$path selection set $index
+	    }
 	}
-	foreach {x1 y1 w1 h1} [$path bbox $index] break
-	# decr y1 to account for bbox's overestimate and for the frame height
-	incr y1 -3
-	# decr y1 by the selectborderwidth
-	incr y1 [expr {[$path cget -selectborderwidth] * -1}]
-	place $path._dragframe -in $path -x 0 -y $y1 -width $w1
 
         DropSite::setcursor based_arrow_down
     } else {
