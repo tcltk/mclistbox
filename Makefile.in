@@ -7,7 +7,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile.in,v 1.1 1999/09/14 03:31:48 wart Exp $
+# RCS: @(#) $Id: Makefile.in,v 1.2 1999/09/17 23:24:51 wart Exp $
 
 
 MCLISTBOX_SOURCES = \
@@ -40,7 +40,6 @@ INSTALL_SCRIPT = @INSTALL_SCRIPT@
 
 PACKAGE = @PACKAGE@
 VERSION = @VERSION@
-TCLSH = @TCLSH@
 PROWRAP = @PROWRAP@
 AUTOCONF = autoconf
 CYGPATH=@CYGPATH@
