@@ -137,7 +137,7 @@ proc testColumnConfig {} {
 	}
     }
     puts "testing commands with a bogus column:"
-    $listbox column configure bogus -width 10
+    catch {$listbox column configure bogus -width 10}
 }
 
 

@@ -1,3 +1,10 @@
+1999-11-23  Eric Melski  <ericm@scriptics.com>
+	* mclistbox.tcl: Added editcombo function, same as edit function but uses
+	a combo box.
+	Fixed bug in bbox.
+	Fixed yscrollcommand handling to get *all* the updates.
+	Fixed some formatting bugs.
+
 1999-10-28  Eric Melski  <ericm@scriptics.com>
 
 	* mclistbox.tcl: Added -editable/-editcommand for columns and 

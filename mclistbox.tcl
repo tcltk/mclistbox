@@ -160,7 +160,7 @@ proc ::mclistbox::Init {} {
     # expand abbreviations.
     set widgetCommands [list \
 	    activate	 bbox       cget     column    configure  \
-	    curselection delete     edit     get       index      \
+	    curselection delete     edit     editcombo get       index      \
 	    insert 	 label      nearest  scan      see        \
 	    selection  	 size       xview    yview
     ]
@@ -724,6 +724,7 @@ proc ::mclistbox::NewColumn {w id {hidden false}} {
 	    -exportselection false \
 	    -selectmode $options(-selectmode) \
 	    -highlightthickness 0 \
+	    -yscrollcommand [list ::mclistbox::InvalidateScrollbars $w] \
 	    ]
 
     set label     \
@@ -847,16 +848,18 @@ proc ::mclistbox::Column-add {w args} {
 
     # define some reasonable defaults, then add any specific
     # values supplied by the user
-    set opts(-bitmap)     {}
-    set opts(-image)      {}
-    set opts(-visible)    1
-    set opts(-resizable)  1
-    set opts(-position)   "end"
-    set opts(-width)      20
-    set opts(-background) $options(-background)
-    set opts(-foreground) $options(-foreground)
-    set opts(-font)       $options(-font)
-    set opts(-label)      $id
+    set opts(-bitmap)      {}
+    set opts(-image)       {}
+    set opts(-visible)     1
+    set opts(-resizable)   1
+    set opts(-position)    "end"
+    set opts(-width)       20
+    set opts(-background)  $options(-background)
+    set opts(-foreground)  $options(-foreground)
+    set opts(-font)        $options(-font)
+    set opts(-label)       $id
+    set opts(-editable)    0
+    set opts(-editcommand) ""
 
     if {[expr {[llength $args]%2}] == 1} {
 	# hmmm. An odd number of elements in args
@@ -1095,14 +1098,14 @@ proc ::mclistbox::Column-configure {w id args} {
 		    # Add the button
 			set fnt [$editbutton cget -font]
 			set txt [$editbutton cget -text]
-			set w   [expr {[font measure $fnt $txt]*1.5}]
+			set width   [expr {[font measure $fnt $txt]*1.5}]
 		    place $editbutton		\
 			    -in		$label	\
 			    -anchor	ne	\
 			    -relx	1.0	\
-				-x      -2  \
+			    -x		-2	\
 			    -rely	0.0	\
-				-width  $w  \
+			    -width	$width	\
 			    -relheight 1.0	
 		} else {
 		    # Remove the button
@@ -1304,7 +1307,7 @@ proc ::mclistbox::WidgetProc {w command args} {
 	    set bbox [$widgets(listbox$id) bbox $index]
 	    if {[string length $bbox] == 0} {return ""}
 
-	    foreach {x y w h} $bbox {}
+	    foreach {x y width h} $bbox {}
 	    
 	    # the x and y coordinates have to be adjusted for the
 	    # fact that the listbox is inside a frame, and the 
@@ -1316,11 +1319,16 @@ proc ::mclistbox::WidgetProc {w command args} {
 	    incr x [winfo x $widgets(frame$id)]
 
 	    # we can get the width by looking at the relative x 
-	    # coordinate of the right edge of the last column
-	    set id [lindex $misc(columns) end]
-	    set w [expr {[winfo width $widgets(frame$id)] + \
+	    # coordinate of the right edge of the last visible column
+	    set index [expr [llength $misc(columns)] - 1]
+	    set id [lindex $misc(columns) $index]
+	    while { $index && ![expr {$options($id:-visible)}] } {
+		incr index -1
+		set id [lindex $misc(columns) $index]
+	    }
+	    set width [expr {[winfo width $widgets(frame$id)] + \
 		    [winfo x $widgets(frame$id)]}]
-	    set bbox [list $x $y [expr {$x + $w}] $h]
+	    set bbox [list $x $y [expr {$x + $width}] $h]
 	    set result $bbox
 	}
 
@@ -1488,6 +1496,14 @@ proc ::mclistbox::WidgetProc {w command args} {
 	    set result [eval ::mclistbox::edit $w $args]
 	}
 
+	editcombo {
+	    if { [llength $args] != 3 } {
+		error "wrong \# of args: should be $w editcombo\
+			column index values"
+	    }
+	    set result [eval ::mclistbox::editcombo $w $args]
+	}
+
 	get {
 	    if {[llength $args] < 1 || [llength $args] > 2} {
 		error "wrong \# of args: should be $w get first ?last?"
@@ -1594,9 +1610,8 @@ proc ::mclistbox::WidgetProc {w command args} {
 		    # make sure the scrollbars reflect the changes.
 		    InvalidateScrollbars $w
 		}
-
-		set result ""
 	    }
+	    set result ""
 	}
 
 	see {
@@ -2367,7 +2382,7 @@ proc ::mclistbox::UpdateScrollbars {w} {
 #
 #    sets up a proc to be run in the idle event handler
 
-proc ::mclistbox::InvalidateScrollbars {w} {
+proc ::mclistbox::InvalidateScrollbars {w args} {
 
     upvar ::mclistbox::${w}::widgets widgets
     upvar ::mclistbox::${w}::options options
@@ -3118,6 +3133,120 @@ proc ::mclistbox::edit {widget id index {vcmd ""}} {
 	    }
 	}
     }
+    
+    # Release the gui grab and destroy the inline edit widgets
+    grab release $fr
+    destroy $fr
+    update
+    bind $widget <Leave> $oldBinding
+    
+    if { $::mclistbox::_edit(wait) & 1 } {
+	return $result
+    }
+    return ""
+}
+
+# ::mclistbox::editcombo --
+#
+#	Perform an inline edit on a given column and index of the listbox,
+#	using a noneditable BWidget combobox.
+#
+# Arguments:
+#	w	name of the mclistbox megawidget
+#	id	column to edit
+#	index	index to edit
+#	values	list of initial values for the combobox
+#
+# Results:
+#	The new value, or "" if the user cancelled the operation.
+
+proc ::mclistbox::editcombo {widget id index values} {
+    if { !$::mclistbox::bwidget } {
+	return ""
+    }
+
+    upvar ::mclistbox::${widget}::widgets widgets
+    
+    # bail if they gave us a bogus id
+    if { [CheckColumnID $widget $id] == -1 } {
+	return -code error "invalid column $id"
+    }
+
+    # define some shorthand
+    set listbox $widgets(listbox$id)
+    set frame   $widgets(frame$id)
+
+    # If there is already an edit session in progress, bail out. I 
+    # am not 100% sure that this is all we have to do, but it sure
+    # is better than throwing a stack trace :-).
+    if {[winfo exists $listbox._inlineEditFrame]} {
+        return ""
+    }
+
+    set initval [$listbox get $index]
+
+    # Compute the geometry for the inline editing widget
+    # It's computed from the bbox of the text and the select border width.
+    set sbw [$listbox cget -selectborderwidth]
+    set bbox [$listbox bbox $index]
+    if { [string equal $bbox ""] } {
+	return ""
+    }
+    foreach {x y w h} $bbox break
+    set  x 0
+    incr y [expr {($sbw * -1)}]
+    set  w [winfo width $frame]
+    incr h [expr {1 + $sbw * 2}]
+
+    # Create the widgets
+    set fr  [frame $listbox._inlineEditFrame \
+	    -borderwidth 0                   \
+	    -highlightthickness 0            \
+	    -relief flat]
+    
+    set cmb [ComboBox $fr.edit		\
+	    -borderwidth 1		\
+	    -highlightthickness 0	\
+	    -relief solid		\
+	    -selectborderwidth 0	\
+	    -font [$listbox cget -font]	\
+	    -values $values		\
+	    -editable false		\
+	    -exportselection false	\
+	    -modifycmd [list set ::mclistbox::_edit(wait) 1]	\
+	    ]
+    # Unpack the label that BWidgets puts in the combobox.  We don't like it,
+    # we don't want it.  But it's easier to remove it here than it is to modify
+    # BWidgets to not pack it unless it's needed.
+    pack forget $cmb.labf.l
+    pack $cmb -expand yes -fill both
+
+    # Set up bindings so that we can tell when the user is done
+    set ::mclistbox::_edit(wait) 0
+    bind $cmb.e <KeyPress-Return> [list set ::mclistbox::_edit(wait) 1]
+    bind $cmb.e <KeyPress-Escape> [list set ::mclistbox::_edit(wait) 0]
+    bind $fr  <Button>          [list set ::mclistbox::_edit(wait) 3]
+    set oldBinding [bind $widget <Leave>]
+    bind $widget <Leave> {break}
+    
+    # Setup the entry with the initial value
+    $cmb setvalue @[lsearch $values $initval]
+    
+    # Place the widgets on the screen
+    place $fr -in $listbox -x $x -y $y -width $w -height $h
+    
+    # Make sure they are visible
+    tkwait visibility $cmb
+    
+    # Grab input so that the user can't do anything until they finish
+    # with the inline edit
+    grab $fr
+
+    focus -force $cmb.e
+    
+    # Wait for the user to finish the edit successfully
+    vwait ::mclistbox::_edit(wait)
+    set result [lindex $values [$cmb getvalue]]
     
     # Release the gui grab and destroy the inline edit widgets
     grab release $fr
