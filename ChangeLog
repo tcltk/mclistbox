@@ -1,4 +1,11 @@
 1999-11-23  Eric Melski  <ericm@scriptics.com>
+
+	* mclistbox.tcl: Added auto-scroll for drag-and-drop.  When dragging over
+	the listbox, it will scroll the listbox up or down if the cursor is in a
+	"hotspot" near the top or bottom of the list.
+
+1999-11-23  Eric Melski  <ericm@scriptics.com>
+
 	* mclistbox.tcl: Added editcombo function, same as edit function but uses
 	a combo box.
 	Fixed bug in bbox.

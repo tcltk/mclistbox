@@ -1255,8 +1255,16 @@ proc ::mclistbox::WidgetProc {w command args} {
 	yview {
 	    if {[llength $args] == 0} {
 		# length of zero means to fetch the yview; we can
-		# get this from a single listbox
-		set result [$widgets(hiddenListbox) yview]
+		# get this from a single visible listbox; default result is
+		# {0 1}, so at least we don't throw an error if there are no
+		# visible columns
+		set result [list 0 1]
+		foreach id $misc(columns) {
+		    if { $options($id:-visible) } {
+			set result [$widgets(listbox$id) yview]
+			break
+		    }
+		}
 
 	    } else {
 
@@ -2308,10 +2316,8 @@ proc ::mclistbox::Configure {w args} {
 	    -dropcursor {
 		# bwidget stuff
 		set newValue [string tolower $newValue]
-		if { ![string equal $newValue "after"] && \
-			![string equal $newValue "before"] && \
-			![string equal $newValue "none"] && \
-			![string equal $newValue "on"] } {
+		set vals [list "after" "before" "none" "on"]
+		if { [lsearch $vals $newValue] == -1 } {
 		    error "invalid dropcursor value \"$newValue\": should\
 			    be one of after, before, none, or on"
 		}
@@ -2859,6 +2865,7 @@ proc ::mclistbox::_init_drag_cmd {path X Y top} {
 
 proc ::mclistbox::_over_cmd {path source event X Y op type data} {
     set index [$path nearest [expr {$Y - [winfo rooty $path]}]]
+    set listbox $path
     set path  [::mclistbox::convert $path -W]
     upvar ::mclistbox::${path}::options options
     set cmd $options(-dropovercmd)
@@ -2906,6 +2913,52 @@ proc ::mclistbox::_over_cmd {path source event X Y op type data} {
 	}
         DropSite::setcursor dot
     }
+
+    # Scrolling is a major pain in the butt, but it's really necessary.
+    # The model we use is this:  define two "hot spots", one at the top
+    # and one at the bottom of the list; if during an over event, the
+    # cursor enters one of these areas, set a timer event to scroll the
+    # listbox appropriately.  When the cursor leaves the hot spot,
+    # or when the drag ends, cancel the timer events.
+    foreach {x1 y1 w1 h1} [$listbox bbox $index] break
+    set top1 [winfo rooty $listbox]
+    set top2 [expr {$top1 + $h1}]
+    set bot2 [expr {[winfo height $listbox] + $top1}]
+    set bot1 [expr {$bot2 - $h1}]
+    if { $event == "leave" } {
+	# In all cases, a leave definately cancels the scrolling
+	if { [info exists ::mclistbox::_scrollTimer($path)] } {
+	    after cancel $::mclistbox::_scrollTimer($path)
+	    unset ::mclistbox::_scrollTimer($path)
+	}
+    } else {
+	if { $res & 1 } {
+	    foreach {first last} [$path yview] break
+	    # If we are accepting this drag, we can scroll the list
+	    if { $top1 < $Y && $Y < $top2 && $first != 0 } {
+		if { ![info exists ::mclistbox::_scrollTimer($path)] } {
+		    set ::mclistbox::_scrollTimer($path) \
+			    [after 200 [list ::mclistbox::Scroll $path -1]]
+		}
+	    } elseif { $bot1 < $Y && $Y < $bot2 && $last != 1 } {
+		if { ![info exists ::mclistbox::_scrollTimer($path)] } {
+		    set ::mclistbox::_scrollTimer($path) \
+			    [after 200 [list ::mclistbox::Scroll $path 1]]
+		}
+	    } else {
+		if { [info exists ::mclistbox::_scrollTimer($path)] } {
+		    after cancel $::mclistbox::_scrollTimer($path)
+		    unset ::mclistbox::_scrollTimer($path)
+		}
+	    }
+	} else {
+	    if { [info exists ::mclistbox::_scrollTimer($path)] } {
+		after cancel $::mclistbox::_scrollTimer($path)
+		unset ::mclistbox::_scrollTimer($path)
+	    }
+	}	    
+    }	    
+    
     return $res
 }
 
@@ -2929,6 +2982,10 @@ proc ::mclistbox::_drag_end_cmd {path source op type data result} {
     upvar ::mclistbox::${path}::options options
     if { [winfo exists $path._dragframe] } {
 	destroy $path._dragframe
+    }
+    if { [info exists ::mclistbox::_scrollTimer($path)] } {
+	after cancel $::mclistbox::_scrollTimer($path)
+	unset ::mclistbox::_scrollTimer($path)
     }
     set cmd $options(-dragendcmd)
     if { ![string equal $cmd ""] } {
@@ -2959,6 +3016,10 @@ proc ::mclistbox::_drop_cmd {path source X Y op type data} {
     upvar ::mclistbox::${path}::options options
     if { [winfo exists $path._dragframe] } {
 	destroy $path._dragframe
+    }
+    if { [info exists ::mclistbox::_scrollTimer($path)] } {
+	after cancel $::mclistbox::_scrollTimer($path)
+	unset ::mclistbox::_scrollTimer($path)
     }
     set cmd $options(-dropcmd)
     if { ![string equal $cmd ""] } {
@@ -3287,6 +3348,30 @@ proc ::mclistbox::_editButtonCommand {w column} {
     set cmd $options($column:-editcommand)
     if { ![string equal $cmd ""] } {
 	uplevel \#0 $cmd $w $column $index
+    }
+    return
+}
+
+# ::mclistbox::Scroll --
+#
+#	Automatically scroll the listbox up or down, depending on parameters.
+#	Register an after event to call this function again.
+#
+# Arguments:
+#	path	mclistbox widget
+#	dir	1 or -1, indicating scroll down or scroll up respectively
+#
+# Results:
+#	None.
+
+proc ::mclistbox::Scroll {path dir} {
+    foreach {top bottom} [$path yview] break
+    if { ($dir == -1 && $top != 0) || ($dir == 1 && $bottom != 1) } {
+	$path yview scroll $dir units
+	set ::mclistbox::_scrollTimer($path) \
+		[after 200 [list ::mclistbox::Scroll $path $dir]]
+    } else {
+	unset ::mclistbox::_scrollTimer($path)
     }
     return
 }
