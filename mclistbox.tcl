@@ -32,7 +32,10 @@ package require Tk 8.0
 package provide mclistbox 1.02
 
 namespace eval ::mclistbox {
-
+    variable bwidget 0
+    if { ![catch {package require BWidget}] } {
+	set bwidget 1
+    }
     # this is the public interface
     namespace export mclistbox
 
@@ -117,6 +120,22 @@ proc ::mclistbox::Init {} {
 	    -xscrollcommand      {xScrollCommand      ScrollCommand} \
 	    -yscrollcommand      {yScrollCommand      ScrollCommand} \
 	    ]
+
+    # If we have bwidget, add the bwidget drag-and-drop stuff.
+    if { $::mclistbox::bwidget } {
+	array set widgetOptions [list \
+		-dragendcmd     {dragEndCmd           DragEndCmd}   \
+		-dragenabled    {dragEnabled          DragEnabled}  \
+		-draginitcmd    {dragInitCmd          DragInitCmd}  \
+		-dragtype       {dragType             DragType}     \
+		-dropcmd        {dropCmd              DropCmd}      \
+		-dropenabled    {dropEnabled          DropEnabled}  \
+		-dropovercmd    {dropOverCmd          DropOverCmd}  \
+		-dropovermode   {dropOverMode         DropOverMode} \
+		-droptypes      {dropTypes            DropTypes}    \
+		]
+
+    }
 
     # and likewise for column-specific stuff. 
     array set columnOptions [list \
@@ -208,6 +227,8 @@ proc ::mclistbox::Init {} {
 	option add *Mclistbox.resizableColumns    1      widgetDefault
 	option add *Mclistbox.selectcommand       {}     widgetDefault
 	option add *Mclistbox.fillcolumn          {}     widgetDefault
+	option add *Mclistbox.dropTypes           \
+		{LISTBOX_ITEM {copy {} move {}}} widgetDefault
 
 	# column options
 	option add *Mclistbox*MclistboxColumn.visible       1      widgetDefault
@@ -678,7 +699,7 @@ proc ::mclistbox::NewColumn {w id} {
 	    -selectmode $options(-selectmode) \
 	    -highlightthickness 0 \
 	    ]
-#    bind $listbox <FocusIn> "focus $w"
+    bind $listbox <FocusIn> "focus $w"
     set label     \
 	    [label $frame.label \
 	    -takefocus 0 \
@@ -728,6 +749,19 @@ proc ::mclistbox::NewColumn {w id} {
     # any events that happen in the listbox gets handled by the class
     # bindings. This has the unfortunate side effect 
     bindtags $listbox [list $w Mclistbox all]
+    # Make the listbox a bwidget drag and drop site, if we have bwidgets
+    if { $::mclistbox::bwidget } {
+	DragSite::register $listbox                      \
+		-draginitcmd ::mclistbox::_init_drag_cmd \
+		-dragendcmd  $options(-dragendcmd)       \
+		-dragevent 1
+
+	DropSite::register $listbox                 \
+		-droptypes   $options(-droptypes)   \
+		-dropovercmd ::mclistbox::_over_cmd \
+		-dropcmd     ::mclistbox::_drop_cmd
+    }
+
 
     # return a list of the widgets we created.
     return [list $frame $listbox $label]
@@ -2621,6 +2655,176 @@ proc ::mclistbox::ResizeEvent {w type widget x X Y} {
 
 	}
     }
+}
+
+# ::mclistbox::_init_drag_cmd --
+#
+#	Called in response to a BWidget drag-and-drop "start drag" event.
+#
+# Arguments:
+#	path      path receiving the event
+#       X         root X coord of the event
+#       Y         root Y coord of the event
+#       top       toplevel created to represent the dragged data.
+#
+# Results:
+#	{type {ops} data}
+#       type     type of the data
+#       ops      list of acceptable operations (copy, move and link)
+#       data     the dragged data
+
+proc ::mclistbox::_init_drag_cmd {path X Y top} {
+    set index [$path nearest [expr {$Y - [winfo rooty $path]}]]
+    set path  [::mclistbox::convert $path -W]
+    upvar ::mclistbox::${path}::options options
+    set cmd   $options(-draginitcmd)
+    if { ![string equal $cmd ""] } {
+	return [uplevel \#0 $cmd [list $path $index $top]]
+    }
+    return [list "LISTBOX_ITEM" {copy move} $index]
+}
+
+# ::mclistbox::_over_cmd --
+#
+#	Respond to a BWidget drag-and-drop "over" event.
+#
+# Arguments:
+#	path            target of the over event
+#       source          source of the drag event
+#       event           one of enter, motion or leave
+#       X               root X coord of the event
+#       Y               root Y coord of the event
+#       op              operation, one of copy, move or link
+#       type            type of dragged data
+#       data            dragged data
+#
+# Results:
+#	0        to refuse drag
+#       1        to accept but prevent future calls to _over_cmd
+#       2        to refuse drag but allow future calls to re-evaluate
+#       3        to accept drag and allow future calls to _over_cmd
+
+proc ::mclistbox::_over_cmd {path source event X Y op type data} {
+    set index [$path nearest [expr {$Y - [winfo rooty $path]}]]
+    set path  [::mclistbox::convert $path -W]
+    upvar ::mclistbox::${path}::options options
+    set cmd $options(-dropovercmd)
+    if { ![string equal $cmd ""] } {
+	set res [uplevel \#0 $cmd [list $path $source $index $op $type $data]]
+    } else {
+	set res 3
+    }
+
+    if { [expr {$res & 1}] } {
+#	$path selection clear 0 end
+#	$path selection set $index
+	if { ![winfo exists $path._dragframe] } {
+	    frame $path._dragframe -borderwidth 1 -height 2 -relief solid
+	    DropSite::register $path._dragframe \
+		    -droptypes $options(-droptypes) \
+		    -dropovercmd ::mclistbox::_over_drag_frame_cmd \
+		    -dropcmd     ::mclistbox::_drop_drag_frame_cmd
+	}
+	foreach {x1 y1 w1 h1} [$path bbox $index] break
+	# decr y1 to account for bbox's overestimate and for the frame height
+	incr y1 -3
+	# decr y1 by the selectborderwidth
+	incr y1 [expr {[$path cget -selectborderwidth] * -1}]
+	place $path._dragframe -in $path -x 0 -y $y1 -width $w1
+
+        DropSite::setcursor based_arrow_down
+    } else {
+	if { [winfo exists $path._dragframe] } {
+	    destroy $path._dragframe
+	}
+        DropSite::setcursor dot
+    }
+    return $res
+}
+
+# ::mclistbox::_drop_cmd --
+#
+#	Respond to a BWidget drag-and-drop "drop" event.
+#
+# Arguments:
+#	path            target of the over event
+#       source          source of the drag event
+#       X               root X coord of the event
+#       Y               root Y coord of the event
+#       op              operation, one of copy, move or link
+#       type            type of dragged data
+#       data            dragged data
+#
+# Results:
+#	0               for failed drop
+#       1               for successful drop
+
+proc ::mclistbox::_drop_cmd {path source X Y op type data} {
+    set index [$path nearest [expr {$Y - [winfo rooty $path]}]]
+    set path  [::mclistbox::convert $path -W]
+    upvar ::mclistbox::${path}::options options
+    if { [winfo exists $path._dragframe] } {
+	destroy $path._dragframe
+    }
+    set cmd $options(-dropcmd)
+    if { ![string equal $cmd ""] } {
+	return [uplevel \#0 $cmd [list $path $source $index $op $type $data]]
+    }
+    return 0
+}
+
+# ::mclistbox::_over_drag_frame_cmd --
+#
+#	Respond to a BWidget drag-and-drop "over" event on the location
+#       indicator frame.
+#
+# Arguments:
+#	path            target of the over event
+#       source          source of the drag event
+#       event           one of enter, motion or leave
+#       X               root X coord of the event
+#       Y               root Y coord of the event
+#       op              operation, one of copy, move or link
+#       type            type of dragged data
+#       data            dragged data
+#
+# Results:
+#	0        to refuse drag
+#       1        to accept but prevent future calls to _over_cmd
+#       2        to refuse drag but allow future calls to re-evaluate
+#       3        to accept drag and allow future calls to _over_cmd
+
+proc ::mclistbox::_over_drag_frame_cmd {path source event X Y op type data} {
+    set win  [winfo parent $path]
+    set col  [$win column nearest [expr {$X - [winfo rootx $win]}]]
+    set path $win.frame${col}.listbox
+
+    return [::mclistbox::_over_cmd $path $source $event $X $Y $op $type $data]
+}
+
+# ::mclistbox::_drop_cmd --
+#
+#	Respond to a BWidget drag-and-drop "drop" event.
+#
+# Arguments:
+#	path            target of the over event
+#       source          source of the drag event
+#       X               root X coord of the event
+#       Y               root Y coord of the event
+#       op              operation, one of copy, move or link
+#       type            type of dragged data
+#       data            dragged data
+#
+# Results:
+#	0               for failed drop
+#       1               for successful drop
+
+proc ::mclistbox::_drop_drag_frame_cmd {path source X Y op type data} {
+    set win  [winfo parent $path]
+    set col  [$win column nearest [expr {$X - [winfo rootx $win]}]]
+    set path $win.frame${col}.listbox
+
+    return [::mclistbox::_drop_cmd $path $source $X $Y $op $type $data]
 }
 
 # end of mclistbox.tcl
