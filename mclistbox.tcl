@@ -3191,6 +3191,7 @@ proc ::mclistbox::edit {widget id index var {vcmd ""}} {
     bind $ent <KeyPress-Return> [list set ::mclistbox::_edit(wait) 1]
     bind $ent <KeyPress-Escape> [list set ::mclistbox::_edit(wait) 0]
     bind $fr  <Button>          [list set ::mclistbox::_edit(wait) 3]
+    bind $ent <Unmap>           [list set ::mclistbox::_edit(wait) 0]
     set oldBinding [bind $widget <Leave>]
     bind $widget <Leave> {break}
     
@@ -3228,7 +3229,7 @@ proc ::mclistbox::edit {widget id index var {vcmd ""}} {
 	    }
 	}
     }
-    
+
     # Release the gui grab and destroy the inline edit widgets
     grab release $fr
     destroy $fr
