@@ -678,7 +678,7 @@ proc ::mclistbox::NewColumn {w id} {
 	    -selectmode $options(-selectmode) \
 	    -highlightthickness 0 \
 	    ]
-
+    bind $listbox <FocusIn> "focus $w"
     set label     \
 	    [label $frame.label \
 	    -takefocus 0 \
@@ -2330,6 +2330,28 @@ proc ::mclistbox::AdjustColumns {w {height ""}} {
 	$widgets(frame$id) configure -height $height
     }
     
+    # START ericm@scriptics.com
+    # if any columns have a zero width, compute their real width
+    foreach id $misc(columns) {
+	if { ![ColumnIsHidden $w $id] } {
+	    if { $misc(min-$widgets(frame$id)) == 0 } {
+		set count [$widgets(listbox$id) index end]
+		set maxw 0
+		for { set i 0 } { $i < $count } { incr i } {
+		    set thisw [font measure $options(-font) \
+			    [$widgets(listbox$id) get $i]]
+		    if { $thisw > $maxw } {
+			set maxw $thisw
+		    }
+		}
+		incr maxw [font measure $options(-font) "0"]
+		set misc(min-$widgets(frame$id)) $maxw
+		$widgets(frame$id) configure -width $maxw
+	    }
+	}
+    }
+    # END ericm@scriptics.com
+
     # if we have a fillcolumn, change its width accordingly
     if {$options(-fillcolumn) != ""} {
 
