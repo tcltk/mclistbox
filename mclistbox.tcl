@@ -2537,8 +2537,12 @@ proc ::mclistbox::AdjustColumns {w {height ""}} {
     foreach id $misc(columns) {
 	if { ![ColumnIsHidden $w $id] } {
 	    if { $misc(min-$widgets(frame$id)) == 0 } {
-		set count [$widgets(listbox$id) index end]
-		set maxw 0
+                set count [$widgets(listbox$id) index end]
+                set maxw 0
+                set columnLabel [$widgets(label$id) cget -text]
+                if {$columnLabel != ""} {
+                    set maxw [font measure $options(-font) $columnLabel]
+                }
 		for { set i 0 } { $i < $count } { incr i } {
 		    set thisw [font measure $options(-font) \
 			    [$widgets(listbox$id) get $i]]

@@ -1,3 +1,10 @@
+2000-05-01  Dan Kuchler  <kuchler@scriptics.com>
+
+        * mclistbox.tcl: Improved the AdjustColumns function to consider
+        the width of the label of the column as well as the contents of
+        the column when the width is set to 0 and AdjustColumns is
+        calculating what the width of the column should be.
+
 2000-03-09  Sven Delmas  <sven@scriptics.com>
 
 	* mclistbox.tcl: Added a binding to Unmap, so that the grab is
