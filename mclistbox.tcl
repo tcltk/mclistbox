@@ -131,7 +131,6 @@ proc ::mclistbox::Init {} {
 		-dropcmd        {dropCmd              DropCmd}      \
 		-dropenabled    {dropEnabled          DropEnabled}  \
 		-dropovercmd    {dropOverCmd          DropOverCmd}  \
-		-dropovermode   {dropOverMode         DropOverMode} \
 		-droptypes      {dropTypes            DropTypes}    \
 		-dropcursor     {dropCursor           DropCursor}  \
 		]
@@ -157,9 +156,9 @@ proc ::mclistbox::Init {} {
     # expand abbreviations.
     set widgetCommands [list \
 	    activate	 bbox       cget     column    configure  \
-	    curselection delete     edit get      index     insert \
-	    label        nearest    scan     see       selection  \
-	    size         xview      yview
+	    curselection delete     edit     get       index      \
+	    insert 	 label      nearest  scan      see        \
+	    selection  	 size       xview    yview
     ]
 
     set columnCommands [list add cget configure delete names nearest]
@@ -228,6 +227,15 @@ proc ::mclistbox::Init {} {
 	option add *Mclistbox.resizableColumns    1      widgetDefault
 	option add *Mclistbox.selectcommand       {}     widgetDefault
 	option add *Mclistbox.fillcolumn          {}     widgetDefault
+
+	# Bwidget stuff
+	option add *Mclistbox.dragEndCmd          {}     widgetDefault
+	option add *Mclistbox.dragEnabled         false  widgetDefault
+	option add *Mclistbox.dragInitCmd         {}     widgetDefault
+	option add *Mclistbox.dragType            {LISTBOX_ITEM} widgetDefault
+	option add *Mclistbox.dropCmd             {}     widgetDefault
+	option add *Mclistbox.dropEnabled         false  widgetDefault
+	option add *Mclistbox.dropOverCmd         {}     widgetDefault
 	option add *Mclistbox.dropTypes           \
 		{LISTBOX_ITEM {copy {} move {}}} widgetDefault
 	option add *Mclistbox.dropCursor          before   widgetDefault
@@ -754,15 +762,18 @@ proc ::mclistbox::NewColumn {w id} {
     bindtags $listbox [list $w Mclistbox all]
     # Make the listbox a bwidget drag and drop site, if we have bwidgets
     if { $::mclistbox::bwidget } {
-	DragSite::register $listbox                      \
-		-draginitcmd ::mclistbox::_init_drag_cmd \
-		-dragendcmd  ::mclistbox::_drag_end_cmd  \
-		-dragevent 1
-
-	DropSite::register $listbox                 \
-		-droptypes   $options(-droptypes)   \
-		-dropovercmd ::mclistbox::_over_cmd \
-		-dropcmd     ::mclistbox::_drop_cmd
+	if { $options(-dragenabled) } {
+	    DragSite::register $listbox                      \
+		    -draginitcmd ::mclistbox::_init_drag_cmd \
+		    -dragendcmd  ::mclistbox::_drag_end_cmd  \
+		    -dragevent 1
+	}
+	if { $options(-dropenabled) } {
+	    DropSite::register $listbox                 \
+		    -droptypes   $options(-droptypes)   \
+		    -dropovercmd ::mclistbox::_over_cmd \
+		    -dropcmd     ::mclistbox::_drop_cmd
+	}
     }
 
 
@@ -1398,11 +1409,10 @@ proc ::mclistbox::WidgetProc {w command args} {
 	}
 
 	edit {
-	    if { [llength $args] != 2 } {
+	    if { [llength $args] != 2 && [llength $args] != 3 } {
 		error "wrong \# of args: should be $w edit column index"
 	    }
-	    foreach {column index} $args break
-	    set result [::mclistbox::edit $w $column $index]
+	    set result [eval ::mclistbox::edit $w $args]
 	}
 
 	get {
@@ -2905,11 +2915,18 @@ proc ::mclistbox::_drop_drag_frame_cmd {path source X Y op type data} {
 #	w       name of the mclistbox megawidget
 #       id      column to edit
 #       index   index to edit
+#       vcmd    script used to validate the input; if null, no validation
+#               will occur.  If non-null, names a function that will be passed
+#               the input and will return a boolean indicating whether or not
+#               the input should be accepted (1 == good input, 0 == bad).  
+#               The edit widget will remain active as long as the input is
+#               rejected.
+
 #
 # Results:
 #	The new value, or "" if the user cancelled the operation.
 
-proc ::mclistbox::edit {w id index} {
+proc ::mclistbox::edit {w id index {vcmd ""}} {
     upvar ::mclistbox::${w}::widgets widgets
     
     # bail if they gave us a bogus id
@@ -2926,16 +2943,18 @@ proc ::mclistbox::edit {w id index} {
     # Compute the geometry for the inline editing widget
     # It's computed from the bbox of the text and the select border width.
     set sbw [$listbox cget -selectborderwidth]
-    foreach {x y w h} [$listbox bbox $index] break
-    foreach {lx ly lw lh} { 0 0 0 0 } break
-    scan [winfo geometry $listbox] "%dx%d+%d+%d" lw lh lx ly
+    set bbox [$listbox bbox $index]
+    if { [string equal $bbox ""] } {
+	return ""
+    }
+    foreach {x y w h} $bbox break
     set  x 0
-    incr y [expr {($sbw * -1) + $ly}]
+    incr y [expr {($sbw * -1)}]
     set  w [winfo width $frame]
     incr h [expr {1 + $sbw * 2}]
 
     # Create the widgets
-    set fr  [frame $frame._inlineEditFrame \
+    set fr  [frame $listbox._inlineEditFrame \
 	    -borderwidth 0                   \
 	    -highlightthickness 0            \
 	    -relief flat]
@@ -2959,7 +2978,7 @@ proc ::mclistbox::edit {w id index} {
     $ent xview end
     
     # Place the widgets on the screen
-    place $fr -in $frame -x $x -y $y -width $w -height $h
+    place $fr -in $listbox -x $x -y $y -width $w -height $h
     
     # Make sure they are visible
     tkwait visibility $ent
@@ -2970,11 +2989,22 @@ proc ::mclistbox::edit {w id index} {
 
     focus -force $ent
     
-    # Wait for the user to finish the edit
-    vwait ::mclistbox::_edit(wait)
-    
-    # Grab the new value
-    set result [$ent get]
+    # Wait for the user to finish the edit successfully
+    set ok 0
+    while { !$ok } {
+	vwait ::mclistbox::_edit(wait)
+	set result [$ent get]
+	if { $::mclistbox::_edit(wait) == 0 } {
+	    set ok 1
+	} elseif { [string equal $vcmd ""] } {
+	    set ok 1
+	} else {
+	    # edit was committed and vcmd is not null
+	    if { [uplevel \#0 $vcmd [list $result]] } {
+		set ok 1
+	    }
+	}
+    }
     
     # Release the gui grab and destroy the inline edit widgets
     grab release $fr
